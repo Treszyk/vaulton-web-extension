@@ -56,11 +56,6 @@ import { DashboardComponent } from './components/dashboard/dashboard.component';
 						class="animate-shake">
 						{{ error }}
 					</div>
-					<p
-						class="footer-note"
-						*ngIf="!error">
-						Vaulton Protected Session
-					</p>
 				</footer>
 			</div>
 		</div>
@@ -172,7 +167,7 @@ import { DashboardComponent } from './components/dashboard/dashboard.component';
 				font-size: 10px;
 				text-transform: uppercase;
 				letter-spacing: 2px;
-				color: #71717a;
+				color: #a1a1aa; /* Bump contrast from #71717a */
 				margin: 4px 0 0 0;
 				font-weight: 600;
 			}
@@ -182,7 +177,7 @@ import { DashboardComponent } from './components/dashboard/dashboard.component';
 				font-weight: 800;
 				text-transform: uppercase;
 				letter-spacing: 1px;
-				color: #71717a;
+				color: #a1a1aa; /* Bump contrast */
 			}
 			.status-indicator.active {
 				color: #a78bfa;

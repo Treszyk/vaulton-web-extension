@@ -1,6 +1,9 @@
 import { Injectable, inject } from '@angular/core';
 import { CryptoWorkerFactory } from '../crypto/worker/crypto-worker.factory';
-import { BrowserStorageService } from '../storage/browser-storage.service';
+import {
+	BrowserStorageService,
+	StorageArea,
+} from '../storage/browser-storage.service';
 import type { PreLoginResponse } from '../api/auth-api.service';
 import type {
 	EncryptedValueDto,
@@ -53,13 +56,16 @@ export class AuthCryptoService {
 				this.terminate();
 			};
 
-			// Rehydrate from session storage
-			const sessionKeys = await this.storage.getMultiple(
+			const local = await this.storage.getMultiple(['NeverLockout'], 'local');
+			const area: 'session' | 'local' =
+				local['NeverLockout'] === true ? 'local' : 'session';
+
+			const storedKeys = await this.storage.getMultiple(
 				['VaultKeyB64', 'TagKeyB64'],
-				'session',
+				area,
 			);
 
-			if (sessionKeys['VaultKeyB64']) {
+			if (storedKeys['VaultKeyB64']) {
 				const id = 'HYDRATE_' + crypto.randomUUID();
 				const hydrationPromise = new Promise<void>((resolve, reject) => {
 					const tId = setTimeout(
@@ -85,8 +91,8 @@ export class AuthCryptoService {
 					payload: {
 						type: 'IMPORT_KEYS',
 						payload: {
-							vaultKeyB64: sessionKeys['VaultKeyB64'],
-							tagKeyB64: sessionKeys['TagKeyB64'],
+							vaultKeyB64: storedKeys['VaultKeyB64'],
+							tagKeyB64: storedKeys['TagKeyB64'],
 						},
 					},
 				});
@@ -156,17 +162,27 @@ export class AuthCryptoService {
 		schemaVer: number,
 		accountId: string,
 	): Promise<void> {
-		const res = await this.postToWorker<{ vaultKeyB64: string }>(
-			'FINALIZE_LOGIN',
-			{
-				MkWrapPwd: mkWrapPwd,
-				CryptoSchemaVer: schemaVer,
-				AccountId: accountId,
-			},
-		);
+		const res = await this.postToWorker<{
+			vaultKeyB64: string;
+			tagKeyB64: string;
+		}>('FINALIZE_LOGIN', {
+			MkWrapPwd: mkWrapPwd,
+			CryptoSchemaVer: schemaVer,
+			AccountId: accountId,
+		});
 
-		if (res.vaultKeyB64) {
-			await this.storage.set('VaultKeyB64', res.vaultKeyB64, 'session');
+		if (res.vaultKeyB64 && res.tagKeyB64) {
+			const local = await this.storage.getMultiple(['NeverLockout'], 'local');
+			const area: StorageArea =
+				local['NeverLockout'] === true ? 'local' : 'session';
+
+			await this.storage.setMultiple(
+				{
+					VaultKeyB64: res.vaultKeyB64,
+					TagKeyB64: res.tagKeyB64,
+				},
+				area,
+			);
 		}
 	}
 

@@ -76,6 +76,13 @@ export type WorkerRequest =
 				saltBuffer: ArrayBuffer;
 				kdfMode: number;
 			};
+	  }
+	| {
+			type: 'IMPORT_KEYS';
+			payload: {
+				vaultKeyB64: string;
+				tagKeyB64: string;
+			};
 	  };
 
 export interface WorkerResponseEnvelope<T> {

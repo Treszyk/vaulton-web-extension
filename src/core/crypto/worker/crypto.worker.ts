@@ -40,8 +40,8 @@ addEventListener(
 					break;
 				}
 				case 'FINALIZE_LOGIN': {
-					await handleFinalizeLogin(request.payload);
-					postSuccess(id, { ok: true });
+					const res = await handleFinalizeLogin(request.payload);
+					postSuccess(id, { ok: true, ...res });
 					break;
 				}
 				case 'CLEAR_KEYS': {
@@ -141,6 +141,12 @@ addEventListener(
 					}
 					break;
 				}
+				case 'IMPORT_KEYS': {
+					const { vaultKeyB64, tagKeyB64 } = request.payload;
+					await handleImportKeys(vaultKeyB64, tagKeyB64);
+					postSuccess(id, { ok: true });
+					break;
+				}
 				default:
 					throw new Error(`Unknown message type: ${(request as any).type}`);
 			}
@@ -220,11 +226,21 @@ async function handleFinalizeLogin({
 
 		const mk = await unwrapMk(kekKey, MkWrapPwd, aad);
 
-		vaultKey = await hkdfAesGcm256Key(mk, 'vaulton/vault-enc', [
-			'encrypt',
-			'decrypt',
-		]);
-		domainTagKey = await hkdfHmacSha256Key(mk, 'vaulton/vault-tag');
+		vaultKey = await hkdfAesGcm256Key(
+			mk,
+			'vaulton/vault-enc',
+			['encrypt', 'decrypt'],
+			true,
+		);
+		domainTagKey = await hkdfHmacSha256Key(mk, 'vaulton/vault-tag', true);
+
+		const vaultKeyRaw = await crypto.subtle.exportKey('raw', vaultKey);
+		const tagKeyRaw = await crypto.subtle.exportKey('raw', domainTagKey);
+
+		return {
+			vaultKeyB64: bytesToB64(new Uint8Array(vaultKeyRaw)),
+			tagKeyB64: bytesToB64(new Uint8Array(tagKeyRaw)),
+		};
 	} catch (e) {
 		vaultKey = null;
 		domainTagKey = null;
@@ -239,6 +255,44 @@ async function handleClearKeys() {
 	vaultKey = null;
 	domainTagKey = null;
 	pendingLoginBaseKey = null;
+}
+
+async function handleImportKeys(vaultKeyB64: string, tagKeyB64: string) {
+	let vaultKeyRaw: Uint8Array | null = null;
+	let tagKeyRaw: Uint8Array | null = null;
+
+	try {
+		vaultKeyRaw = b64ToBytes(vaultKeyB64);
+		tagKeyRaw = b64ToBytes(tagKeyB64);
+
+		vaultKey = await crypto.subtle.importKey(
+			'raw',
+			vaultKeyRaw as BufferSource,
+			{ name: 'AES-GCM', length: 256 },
+			true,
+			['encrypt', 'decrypt'],
+		);
+
+		domainTagKey = await crypto.subtle.importKey(
+			'raw',
+			tagKeyRaw as BufferSource,
+			{ name: 'HMAC', hash: 'SHA-256', length: 256 },
+			true,
+			['sign'],
+		);
+	} catch (e) {
+		console.error('Import keys failed', e);
+		vaultKey = null;
+		domainTagKey = null;
+		throw e;
+	} finally {
+		try {
+			if (vaultKeyRaw) zeroize(vaultKeyRaw);
+		} catch {}
+		try {
+			if (tagKeyRaw) zeroize(tagKeyRaw);
+		} catch {}
+	}
 }
 
 async function handleEncryptEntry({

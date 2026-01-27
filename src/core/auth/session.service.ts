@@ -19,7 +19,6 @@ export class SessionService {
 	readonly neverLockout = signal(false);
 
 	async tryRestore(): Promise<void> {
-		console.log('[Vaulton SessionService] Initializing state from storage...');
 		const local = await this.storage.getMultiple(
 			['AccountId', 'NeverLockout'],
 			'local',
@@ -32,14 +31,31 @@ export class SessionService {
 			this.isAuthenticated.set(true);
 			await this.checkVaultStatus();
 
-			// Proactively try to refresh if tokens exist
+			try {
+				await firstValueFrom(this.api.me());
+			} catch (e) {
+				await this.logout();
+			}
+			return;
+		}
+
+		if (tokens.refreshToken) {
+			if (this.isTokenExpired(tokens.refreshExpiresAt)) {
+				await this.logout();
+				return;
+			}
+
+			console.log(
+				'[Vaulton SessionService] Recovering session from refresh token...',
+			);
 			try {
 				await this.refresh();
+				this.isAuthenticated.set(true);
+				await this.checkVaultStatus();
+				console.log('[Vaulton SessionService] Session recovered');
 			} catch (e) {
-				console.warn(
-					'[Vaulton SessionService] Auto-refresh failed during init',
-					e,
-				);
+				console.warn('[Vaulton SessionService] Recovery failed', e);
+				await this.logout();
 			}
 		}
 	}
@@ -81,6 +97,21 @@ export class SessionService {
 					tokens.refreshToken || '',
 					tokens.refreshExpiresAt || '',
 				);
+
+				const source = value ? 'session' : 'local';
+				const target = value ? 'local' : 'session';
+				const keys = await this.storage.getMultiple(
+					['VaultKeyB64', 'TagKeyB64'],
+					source,
+				);
+
+				if (keys['VaultKeyB64']) {
+					await this.storage.setMultiple(keys, target);
+					await this.storage.removeMultiple(
+						['VaultKeyB64', 'TagKeyB64'],
+						source,
+					);
+				}
 			}
 		}
 	}

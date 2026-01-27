@@ -34,7 +34,7 @@
 .user-meta .label {
 	font-size: 9px;
 	text-transform: uppercase;
-	color: #71717a;
+	color: #d4d4d8;
 	font-weight: 800;
 	letter-spacing: 1px;
 	display: block;
@@ -42,7 +42,7 @@
 .account-id {
 	font-size: 13px;
 	font-weight: 600;
-	color: #f4f4f5;
+	color: #fff;
 	word-break: break-all;
 }
 .quick-actions {

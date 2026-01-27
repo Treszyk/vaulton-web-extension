@@ -33,6 +33,7 @@ export function hkdfAesGcm256Key(
 	hkdfBaseKey: CryptoKey,
 	info: string,
 	keyUsages: KeyUsage[] = ['encrypt', 'decrypt'],
+	extractable = false,
 ): Promise<CryptoKey> {
 	return crypto.subtle.deriveKey(
 		{
@@ -43,7 +44,7 @@ export function hkdfAesGcm256Key(
 		},
 		hkdfBaseKey,
 		{ name: 'AES-GCM', length: 256 },
-		false,
+		extractable,
 		keyUsages,
 	);
 }
@@ -51,6 +52,7 @@ export function hkdfAesGcm256Key(
 export function hkdfHmacSha256Key(
 	hkdfBaseKey: CryptoKey,
 	info: string,
+	extractable = false,
 ): Promise<CryptoKey> {
 	return crypto.subtle.deriveKey(
 		{
@@ -61,7 +63,7 @@ export function hkdfHmacSha256Key(
 		},
 		hkdfBaseKey,
 		{ name: 'HMAC', hash: 'SHA-256', length: 256 },
-		false,
+		extractable,
 		['sign'],
 	);
 }
