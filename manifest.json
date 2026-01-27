@@ -3,7 +3,7 @@
 	"name": "Vaulton Password Manager",
 	"version": "1.0",
 	"description": "Vaulton Password Manager Extension",
-	"permissions": ["storage"],
+	"permissions": ["storage", "alarms"],
 	"host_permissions": [
 		"http://localhost:4200/*",
 		"http://localhost:5009/*",

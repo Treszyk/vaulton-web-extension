@@ -1,19 +1,48 @@
 /// <reference types="chrome"/>
 import { API_BASE_URL } from '../config';
+import { BackgroundAuthManager } from './auth-manager';
 
-console.log('[Vaulton Extension] Background Service Worker Initialized');
+const auth = new BackgroundAuthManager();
+const browserApi: any =
+	(globalThis as any).browser || (globalThis as any).chrome;
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-	if (request.action === 'preRegister') {
-		preRegister()
-			.then(sendResponse)
-			.catch((err: Error) =>
-				sendResponse({ success: false, error: err.message }),
-			);
-		return true;
+console.log('[Vaulton Background] Service Worker Initializing...');
+
+browserApi.alarms.create('token-refresh', { periodInMinutes: 15 });
+
+browserApi.alarms.onAlarm.addListener((alarm: any) => {
+	if (alarm.name === 'token-refresh') {
+		auth.refreshTokens();
 	}
-	return false;
 });
+
+browserApi.runtime.onMessage.addListener(
+	(request: any, _sender: any, sendResponse: any) => {
+		if (request.action === 'preRegister') {
+			preRegister()
+				.then(sendResponse)
+				.catch((err: Error) =>
+					sendResponse({ success: false, error: err.message }),
+				);
+			return true;
+		}
+
+		if (request.action === 'refreshToken') {
+			auth
+				.refreshTokens()
+				.then((success) => sendResponse({ success }))
+				.catch((err) => sendResponse({ success: false, error: err.message }));
+			return true;
+		}
+
+		if (request.action === 'remoteLog') {
+			console.log(`[Popup remote log] ${request.message}`);
+			return false;
+		}
+
+		return false;
+	},
+);
 
 async function preRegister(): Promise<{
 	success: boolean;
@@ -34,7 +63,6 @@ async function preRegister(): Promise<{
 		const data = await response.json();
 		return { success: true, data };
 	} catch (error: any) {
-		console.error('Pre-register failed:', error);
 		return { success: false, error: error.message || 'Unknown error' };
 	}
 }

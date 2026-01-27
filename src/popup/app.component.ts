@@ -1,5 +1,9 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { AuthService } from '../core/auth/auth.service';
+
+const browserApi: any =
+	(globalThis as any).browser || (globalThis as any).chrome;
 
 @Component({
 	selector: 'app-root',
@@ -8,6 +12,11 @@ import { CommonModule } from '@angular/common';
 	template: `
 		<div style="width: 300px; padding: 16px; font-family: sans-serif;">
 			<h3>Vaulton Extension</h3>
+
+			<div *ngIf="auth.isAuthenticated()">
+				<p style="color: green;">Logged in as: {{ auth.accountId() }}</p>
+			</div>
+
 			<p>Test backend connection:</p>
 
 			<button
@@ -29,30 +38,38 @@ import { CommonModule } from '@angular/common';
 	`,
 	styles: [],
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
 	loading = false;
 	result: any = null;
+	auth = inject(AuthService);
 
 	constructor(private cdr: ChangeDetectorRef) {}
 
+	ngOnInit() {
+		this.auth.init().then(() => {
+			console.log('[Vaulton Popup] AuthService initialization complete.');
+			this.cdr.detectChanges();
+		});
+	}
+
 	onPreRegister() {
-		console.log('[Popup] Test Connection clicked. Sending message...');
 		this.loading = true;
 		this.result = null;
 
-		chrome.runtime.sendMessage({ action: 'preRegister' }, (response: any) => {
-			console.log('[Popup] Received response:', response);
-			console.log('[Popup] Runtime error:', chrome.runtime.lastError);
-			this.loading = false;
-			if (chrome.runtime.lastError) {
-				this.result = {
-					success: false,
-					error: chrome.runtime.lastError.message,
-				};
-			} else {
-				this.result = response;
-			}
-			this.cdr.detectChanges();
-		});
+		browserApi.runtime.sendMessage(
+			{ action: 'preRegister' },
+			(response: any) => {
+				this.loading = false;
+				if (browserApi.runtime.lastError) {
+					this.result = {
+						success: false,
+						error: browserApi.runtime.lastError.message,
+					};
+				} else {
+					this.result = response;
+				}
+				this.cdr.detectChanges();
+			},
+		);
 	}
 }
