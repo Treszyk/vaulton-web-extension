@@ -1,13 +1,21 @@
 # Vaulton Password Manager Extension
 
+The browser extension for Vaulton, built with **Angular** and **TypeScript** using **Vite**.
+
 ## Development Setup
 
-The extension is built to talk to the Vaulton backend. During development, we use the local frontend proxy to avoid CORS issues.
+The extension is designed for modern browser security standards (Manifest V3) and uses AOT (Ahead-of-Time) compilation for its Angular popup.
 
 ### Prerequisites
 
-1.  Ensure the Vaulton backend and frontend are running (e.g., via Docker Compose).
-2.  The API should be accessible at `http://localhost:4200/api` (which proxies to the backend).
+1.  Ensure the Vaulton backend is running.
+2.  Install dependencies: `npm install`.
+
+### Building
+
+The extension must be built before it can be loaded into your browser:
+
+1.  Run `npm run build` - This generates the `dist/` folder.
 
 ### Loading into Chrome / Edge
 
@@ -16,14 +24,16 @@ The extension is built to talk to the Vaulton backend. During development, we us
     - **Edge:** `edge://extensions/`
 2.  Enable **Developer mode** (toggle in the top-right corner).
 3.  Click the **Load unpacked** button (top-left).
-4.  Select the **`vaulton-web-extension`** folder (the root of this extension project).
+4.  Select the **`vaulton-web-extension/dist`** folder.
 
-### Configuration
+### Key Structure
 
-- **`src/config.js`**: Controls the API URL.
-  - **Dev:** `http://localhost:4200/api` (Frontend Proxy)
-  - **Prod:** `https://vaulton.dev/api` (or your domain)
+- **`src/background/main.ts`**: The Background Service Worker.
+- **`src/popup/`**: The Angular 17 popup application.
+- **`src/config.ts`**: Controls the `API_BASE_URL`.
+- **`vite.config.ts`**: Unified build configuration for the background and popup.
 
 ### Troubleshooting
 
-- **Connection Failed:** check if `localhost:4200` is reachable. Open the extension popup, right-click, select "Inspect", and check the **Console** tab for detailed errors.
+- **No Data in Popup:** Right-click the extension icon, select "Inspect Popup", and check the Console.
+- **Service Worker Errors:** In `chrome://extensions`, click the "Service Worker" link next to "Inspect views" to view the background logs.

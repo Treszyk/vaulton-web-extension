@@ -4,13 +4,17 @@
 	"version": "1.0",
 	"description": "Vaulton Password Manager Extension",
 	"permissions": ["storage"],
-	"host_permissions": ["http://localhost:4200/*"],
+	"host_permissions": [
+		"http://localhost:4200/*",
+		"http://localhost:5009/*",
+		"http://localhost:8080/*"
+	],
 	"background": {
-		"service_worker": "src/background.js",
+		"service_worker": "service-worker.js",
 		"type": "module"
 	},
 	"action": {
-		"default_popup": "src/popup.html",
+		"default_popup": "src/popup/index.html",
 		"default_icon": {
 			"16": "icons/icon.png",
 			"48": "icons/icon.png",
