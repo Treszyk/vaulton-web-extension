@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+	<head>
+		<style>
+			body {
+				width: 300px;
+				padding: 10px;
+				font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			}
+			button {
+				width: 100%;
+				padding: 8px;
+				margin-top: 10px;
+				cursor: pointer;
+			}
+			#status {
+				margin-top: 10px;
+				word-break: break-all;
+				font-size: 12px;
+			}
+			.error {
+				color: red;
+			}
+			.success {
+				color: green;
+			}
+		</style>
+	</head>
+	<body>
+		<h3>Vaulton Extension</h3>
+		<p>Test backend connection:</p>
+		<button id="testBtn">Pre-Register (Get Account ID)</button>
+		<div id="status"></div>
+		<script
+			type="module"
+			src="popup.js"></script>
+	</body>
+</html>
