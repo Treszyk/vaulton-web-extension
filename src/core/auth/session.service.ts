@@ -1,53 +1,93 @@
 import { Injectable, inject, signal } from '@angular/core';
-import {
-	AuthApiService,
-	ExtLoginResponse,
-	ExtRefreshResponse,
-} from '../api/auth-api.service';
+import { AuthApiService, ExtRefreshResponse } from '../api/auth-api.service';
 import {
 	BrowserStorageService,
 	StorageArea,
 } from '../storage/browser-storage.service';
+import { AuthCryptoService } from './auth-crypto.service';
 import { firstValueFrom } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
-export class AuthService {
+export class SessionService {
 	private api = inject(AuthApiService);
 	private storage = inject(BrowserStorageService);
+	private crypto = inject(AuthCryptoService);
 
 	readonly isAuthenticated = signal(false);
 	readonly accountId = signal<string | null>(null);
+	readonly isLocked = signal(true);
+	readonly neverLockout = signal(false);
 
-	async init(): Promise<void> {
-		console.log('[Vaulton AuthService] Initializing state from storage...');
+	async tryRestore(): Promise<void> {
+		console.log('[Vaulton SessionService] Initializing state from storage...');
 		const local = await this.storage.getMultiple(
 			['AccountId', 'NeverLockout'],
 			'local',
 		);
 		this.accountId.set(local['AccountId'] || null);
+		this.neverLockout.set(local['NeverLockout'] === true);
 
-		const session = await this.storage.getMultiple(['AccessToken'], 'session');
-		if (session['AccessToken']) {
+		const tokens = await this.getTokens();
+		if (tokens.accessToken) {
 			this.isAuthenticated.set(true);
-		} else if (local['NeverLockout'] === true) {
-			const tokens = await this.storage.getMultiple(['AccessToken'], 'local');
-			if (tokens['AccessToken']) {
-				this.isAuthenticated.set(true);
+			await this.checkVaultStatus();
+
+			// Proactively try to refresh if tokens exist
+			try {
+				await this.refresh();
+			} catch (e) {
+				console.warn(
+					'[Vaulton SessionService] Auto-refresh failed during init',
+					e,
+				);
 			}
 		}
 	}
 
-	async login(accountId: string, verifier: string): Promise<ExtLoginResponse> {
+	async login(accountId: string, password: string): Promise<void> {
+		const preLogin = await firstValueFrom(this.api.preLogin(accountId));
+
+		const { verifier } = await this.crypto.buildLogin(password, preLogin);
+
 		const response = await firstValueFrom(this.api.login(accountId, verifier));
+
+		await this.crypto.finalizeLogin(
+			response.MkWrapPwd,
+			preLogin.CryptoSchemaVer,
+			accountId,
+		);
+
 		await this.saveSession(
 			response.AccessToken,
 			response.RefreshToken,
 			response.RefreshExpiresAt,
 			accountId,
 		);
+
 		this.isAuthenticated.set(true);
 		this.accountId.set(accountId);
-		return response;
+		this.isLocked.set(false);
+	}
+
+	async toggleNeverLockout(value: boolean): Promise<void> {
+		this.neverLockout.set(value);
+		await this.storage.set('NeverLockout', value, 'local');
+
+		if (this.isAuthenticated()) {
+			const tokens = await this.getTokens();
+			if (tokens.accessToken) {
+				await this.saveSession(
+					tokens.accessToken,
+					tokens.refreshToken || '',
+					tokens.refreshExpiresAt || '',
+				);
+			}
+		}
+	}
+
+	async checkVaultStatus(): Promise<void> {
+		const locked = !(await this.crypto.checkStatus());
+		this.isLocked.set(locked);
 	}
 
 	async refresh(): Promise<ExtRefreshResponse> {
@@ -86,7 +126,9 @@ export class AuthService {
 			}
 		}
 		await this.clearSession();
+		await this.crypto.clearKeys();
 		this.isAuthenticated.set(false);
+		this.isLocked.set(true);
 	}
 
 	private async getTokens(): Promise<{

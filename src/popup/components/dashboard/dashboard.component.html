@@ -1,0 +1,41 @@
+<div class="dashboard-panel animate-fade">
+	<div class="user-profile">
+		<div class="avatar-ring">
+			<div class="avatar">{{ auth.accountId()?.charAt(0)?.toUpperCase() }}</div>
+		</div>
+		<div class="user-meta">
+			<span class="label">Authenticated Ident</span>
+			<span class="account-id">{{ auth.accountId() }}</span>
+		</div>
+	</div>
+
+	<div class="quick-actions">
+		<button
+			class="action-card"
+			(click)="onRefresh()"
+			[disabled]="loading">
+			<div class="card-icon">↻</div>
+			<span class="card-label">Refresh</span>
+		</button>
+		<button
+			class="action-card"
+			(click)="onCheckStatus()">
+			<div class="card-icon">?</div>
+			<span class="card-label">Status</span>
+		</button>
+		<button
+			class="action-card logout"
+			(click)="onLogout()">
+			<div class="card-icon">↪</div>
+			<span class="card-label">Logout</span>
+		</button>
+	</div>
+
+	<div class="debug-zone">
+		<button
+			class="btn-outline-danger"
+			(click)="onWipeData()">
+			Emergency Wipe Device
+		</button>
+	</div>
+</div>

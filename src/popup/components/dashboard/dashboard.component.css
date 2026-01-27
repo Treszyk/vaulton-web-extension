@@ -1,0 +1,106 @@
+.dashboard-panel {
+	animation: fadeIn 0.5s ease-out;
+}
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+.user-profile {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	margin-bottom: 24px;
+}
+.avatar-ring {
+	padding: 2px;
+	background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%);
+	border-radius: 50%;
+}
+.avatar {
+	width: 40px;
+	height: 40px;
+	background: #09090b;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 800;
+	font-size: 18px;
+}
+.user-meta .label {
+	font-size: 9px;
+	text-transform: uppercase;
+	color: #71717a;
+	font-weight: 800;
+	letter-spacing: 1px;
+	display: block;
+}
+.account-id {
+	font-size: 13px;
+	font-weight: 600;
+	color: #f4f4f5;
+	word-break: break-all;
+}
+.quick-actions {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 10px;
+	margin-bottom: 24px;
+}
+.action-card {
+	background: #18181b;
+	border: 1px solid #27272a;
+	border-radius: 16px;
+	padding: 12px 8px;
+	color: #fff;
+	cursor: pointer;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	transition: all 0.2s;
+}
+.action-card:hover {
+	background: #27272a;
+	border-color: #3f3f46;
+	transform: scale(1.02);
+}
+.action-card.logout {
+	color: #f87171;
+}
+.action-card.logout:hover {
+	background: rgba(239, 68, 68, 0.1);
+	border-color: rgba(239, 68, 68, 0.2);
+}
+.card-icon {
+	font-size: 20px;
+}
+.card-label {
+	font-size: 9px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+.debug-zone {
+	margin-top: 12px;
+}
+.btn-outline-danger {
+	width: 100%;
+	background: transparent;
+	border: 1px dashed rgba(239, 68, 68, 0.4);
+	color: #f87171;
+	font-size: 10px;
+	padding: 10px;
+	border-radius: 10px;
+	cursor: pointer;
+	font-family: 'JetBrains Mono', monospace;
+	transition: all 0.2s;
+}
+.btn-outline-danger:hover {
+	border-style: solid;
+	background: rgba(239, 68, 68, 0.05);
+}

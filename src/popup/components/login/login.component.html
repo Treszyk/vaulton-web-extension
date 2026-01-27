@@ -1,0 +1,56 @@
+<div class="auth-panel">
+	<div class="panel-header">
+		<h2>Welcome back</h2>
+		<p>Access your secure vault</p>
+	</div>
+
+	<div class="form-groups">
+		<div class="input-group">
+			<label>Account ID</label>
+			<div class="input-wrapper">
+				<input
+					type="text"
+					[(ngModel)]="email"
+					placeholder="vault-xxxx-xxxx" />
+				<i class="icon-user"></i>
+			</div>
+		</div>
+
+		<div class="input-group">
+			<label>Master Password</label>
+			<div class="input-wrapper">
+				<input
+					type="password"
+					[(ngModel)]="password"
+					placeholder="••••••••••••"
+					(keyup.enter)="onLogin()" />
+				<i class="icon-lock"></i>
+			</div>
+		</div>
+	</div>
+
+	<button
+		class="btn-primary"
+		(click)="onLogin()"
+		[disabled]="loading || !email || !password">
+		<span
+			*ngIf="!loading"
+			class="btn-text"
+			>Unlock Vault</span
+		>
+		<div
+			*ngIf="loading"
+			class="loader"></div>
+	</button>
+
+	<div class="persistence-toggle">
+		<label class="switch">
+			<input
+				type="checkbox"
+				[ngModel]="auth.neverLockout()"
+				(ngModelChange)="onTogglePersistence($event)" />
+			<span class="slider"></span>
+		</label>
+		<span>Never Lockout (Saves Keys)</span>
+	</div>
+</div>
