@@ -288,8 +288,6 @@ export async function encryptVaultCache(
 		return bytesToB64(combined);
 	} finally {
 		zeroize(ptBytes);
-		// Note: combined buffer is returned as base64 string, so data is in string memory now.
-		// ptBytes is zeroized.
 	}
 }
 
@@ -312,7 +310,6 @@ export async function decryptVaultCache(
 	} finally {
 		zeroize(iv);
 		zeroize(ct);
-		// Note: we return a string, so plaintext ends up in string memory.
 		if (ptBuf) {
 			new Uint8Array(ptBuf).fill(0);
 		}

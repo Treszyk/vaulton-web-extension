@@ -4,6 +4,7 @@ import {
 	importVaultKeys,
 	decryptVaultEntry,
 	encryptVaultCache,
+	decryptVaultCache,
 	importSessionKey,
 } from '../core/crypto/crypto-core';
 import { bytesToB64 } from '../core/crypto/b64';
@@ -285,6 +286,23 @@ export class BackgroundAuthManager {
 		if (!isNaN(minutes) && minutes > 0) {
 			chrome.alarms.create('auto-lock', { delayInMinutes: minutes });
 			console.log(`[Background] Auto-lock timer reset: ${minutes} minutes`);
+		}
+	}
+
+	public async getDecryptedVault(): Promise<any[]> {
+		const encryptedVault = await StorageCore.get('EncryptedVault', 'local');
+		if (!encryptedVault) return [];
+
+		const sessionKeyB64 = await StorageCore.get('VaultSessionKey', 'session');
+		if (!sessionKeyB64) return [];
+
+		try {
+			const sessionKey = await importSessionKey(sessionKeyB64);
+			const vaultJson = await decryptVaultCache(sessionKey, encryptedVault);
+			return JSON.parse(vaultJson);
+		} catch (e) {
+			console.error('[Background] Failed to decrypt vault:', e);
+			return [];
 		}
 	}
 }

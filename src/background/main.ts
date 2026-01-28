@@ -78,8 +78,50 @@ async function handleAction(action: BackgroundAction): Promise<any> {
 			return preRegister();
 		case 'RESET_TIMER':
 			return Promise.resolve();
+		case 'GET_CREDENTIALS':
+			return getCredentialsForDomain(action.payload.domain);
 		default:
 			throw new Error(`Unknown action: ${(action as any).type}`);
+	}
+}
+
+async function getCredentialsForDomain(
+	domain: string,
+): Promise<{ credentials: any[]; locked: boolean }> {
+	try {
+		const sessionKeyB64 =
+			await browserApi.storage.session.get('VaultSessionKey');
+		if (!sessionKeyB64.VaultSessionKey) {
+			return { credentials: [], locked: true };
+		}
+
+		const vault = await auth.getDecryptedVault();
+		if (!vault || vault.length === 0) {
+			return { credentials: [], locked: false };
+		}
+
+		const normalized = domain.toLowerCase().replace(/^www\./, '');
+		const filtered = vault
+			.filter((record: any) => {
+				const recordDomain = (record.website || '')
+					.toLowerCase()
+					.replace(/^www\./, '');
+				return (
+					recordDomain.includes(normalized) || normalized.includes(recordDomain)
+				);
+			})
+			.map((record: any) => ({
+				id: record.id,
+				title: record.title,
+				username: record.username,
+				password: record.password,
+				website: record.website,
+			}));
+
+		return { credentials: filtered, locked: false };
+	} catch (e) {
+		console.error('[Background] Get credentials error:', e);
+		return { credentials: [], locked: false };
 	}
 }
 
