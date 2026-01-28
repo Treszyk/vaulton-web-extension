@@ -14,11 +14,10 @@ import {
 	switchMap,
 	throwError,
 } from 'rxjs';
-import { ExtRefreshResponse } from '../api/auth-api.service';
 import { SessionService } from './session.service';
 import { BrowserStorageService } from '../storage/browser-storage.service';
 
-let refreshInFlight$: Observable<ExtRefreshResponse> | null = null;
+let refreshInFlight$: Observable<string | null> | null = null;
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
 	const storage = inject(BrowserStorageService);
@@ -45,7 +44,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 			return next(authReq).pipe(
 				catchError((error) => {
 					if (error instanceof HttpErrorResponse && error.status === 401) {
-						return handle401Error(authReq, next, session);
+						return handle401Error(authReq, next, session, storage);
 					}
 					return throwError(() => error);
 				}),
@@ -61,9 +60,7 @@ async function getAccessToken(
 		const local = await storage.getMultiple(['NeverLockout'], 'local');
 		const area = local['NeverLockout'] === true ? 'local' : 'session';
 		const tokens = await storage.getMultiple(['AccessToken'], area);
-		const token = tokens['AccessToken'] || null;
-
-		return token;
+		return tokens['AccessToken'] || null;
 	} catch (e) {
 		console.error('[Vaulton Interceptor] Failed to read token', e);
 		return null;
@@ -74,9 +71,11 @@ function handle401Error(
 	req: HttpRequest<any>,
 	next: HttpHandlerFn,
 	session: SessionService,
+	storage: BrowserStorageService,
 ) {
 	if (!refreshInFlight$) {
 		refreshInFlight$ = from(session.refresh()).pipe(
+			switchMap(() => from(getAccessToken(storage))),
 			catchError((err) => {
 				session.logout();
 				return throwError(() => err);
@@ -89,11 +88,14 @@ function handle401Error(
 	}
 
 	return refreshInFlight$.pipe(
-		switchMap((res) => {
-			const newReq = req.clone({
-				setHeaders: { Authorization: `Bearer ${res.AccessToken}` },
-			});
-			return next(newReq);
+		switchMap((newToken) => {
+			if (newToken) {
+				const newReq = req.clone({
+					setHeaders: { Authorization: `Bearer ${newToken}` },
+				});
+				return next(newReq);
+			}
+			return throwError(() => new Error('Refresh failed to provide token'));
 		}),
 	);
 }

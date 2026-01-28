@@ -3,7 +3,6 @@ import { StorageCore } from '../core/storage/storage-core';
 import {
 	importVaultKeys,
 	decryptVaultEntry,
-	deriveVaultKeys,
 	encryptVaultCache,
 	importSessionKey,
 } from '../core/crypto/crypto-core';
@@ -11,6 +10,25 @@ import { bytesToB64 } from '../core/crypto/b64';
 
 export class BackgroundAuthManager {
 	async syncVault(force = false): Promise<boolean> {
+		const result = await this.trySyncVault();
+		if (result === 'unauthorized') {
+			console.log(
+				'[Background] Sync failed (401). Attempting token refresh...',
+			);
+			const refreshed = await this.refreshTokens();
+			if (refreshed) {
+				console.log('[Background] Refresh success. Retrying sync...');
+				const retry = await this.trySyncVault();
+				return retry === true;
+			} else {
+				console.log('[Background] Refresh failed. Session cleared.');
+				return false;
+			}
+		}
+		return result === true;
+	}
+
+	private async trySyncVault(): Promise<boolean | 'unauthorized'> {
 		const { AccessToken } = await StorageCore.getSmartMultiple(['AccessToken']);
 		if (!AccessToken) return false;
 
@@ -29,6 +47,11 @@ export class BackgroundAuthManager {
 					Pragma: 'no-cache',
 				},
 			});
+
+			if (response.status === 401) {
+				return 'unauthorized';
+			}
+
 			if (!response.ok) return false;
 
 			const encryptedEntries = await response.json();
