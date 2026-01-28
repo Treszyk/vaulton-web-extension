@@ -4,7 +4,6 @@ import {
 	Input,
 	Output,
 	signal,
-	inject,
 	ViewEncapsulation,
 	effect,
 } from '@angular/core';

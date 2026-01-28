@@ -20,7 +20,6 @@ import { SessionService } from '../../../core/auth/session.service';
 export class LoginComponent {
 	@Input() loading = false;
 	@Output() login = new EventEmitter<{ email: string; password: string }>();
-	@Output() togglePersistence = new EventEmitter<boolean>();
 
 	auth = inject(SessionService);
 	accountId = '';
@@ -39,9 +38,5 @@ export class LoginComponent {
 		if (this.accountId && this.password) {
 			this.login.emit({ email: this.accountId, password: this.password });
 		}
-	}
-
-	onTogglePersistence(val: boolean) {
-		this.togglePersistence.emit(val);
 	}
 }

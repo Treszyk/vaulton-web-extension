@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { StorageCore, StorageArea, browserApi } from './storage-core';
+import { StorageCore, StorageArea } from './storage-core';
 
 @Injectable({ providedIn: 'root' })
 export class BrowserStorageService {
@@ -56,6 +56,11 @@ export class BrowserStorageService {
 		return StorageCore.getSmart(key);
 	}
 
+	async getSmartMultiple(keys: string[]): Promise<{ [key: string]: any }> {
+		this.log(`[getSmartMultiple] keys: ${keys}`);
+		return StorageCore.getSmartMultiple(keys);
+	}
+
 	async setSmart(key: string, value: any): Promise<void> {
 		this.log(`[setSmart] key: ${key}`);
 		await StorageCore.setSmart(key, value);
@@ -66,7 +71,7 @@ export class BrowserStorageService {
 		await StorageCore.removeSmart(key);
 	}
 
-	private log(message: string, level: 'info' | 'error' = 'info'): void {
+	private log(message: string, _level: 'info' | 'error' = 'info'): void {
 		const msg = `[Vaulton Storage] ${message}`;
 		console.log(msg);
 	}

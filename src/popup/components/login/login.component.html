@@ -42,15 +42,4 @@
 			*ngIf="loading"
 			class="loader"></div>
 	</button>
-
-	<div class="persistence-toggle">
-		<label class="switch">
-			<input
-				type="checkbox"
-				[ngModel]="auth.neverLockout()"
-				(ngModelChange)="onTogglePersistence($event)" />
-			<span class="slider"></span>
-		</label>
-		<span>Never Lockout (Saves Keys)</span>
-	</div>
 </div>

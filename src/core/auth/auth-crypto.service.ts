@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { CryptoWorkerFactory } from '../crypto/worker/crypto-worker.factory';
 import { BrowserStorageService } from '../storage/browser-storage.service';
-import { StorageArea } from '../storage/storage-core';
+import { StorageCore } from '../storage/storage-core';
 import type { PreLoginResponse } from '../api/auth-api.service';
 import type {
 	EncryptedValueDto,
@@ -56,10 +56,7 @@ export class AuthCryptoService {
 				this.terminate();
 			};
 
-			const local = await this.storage.getMultiple(['NeverLockout'], 'local');
-			const area: 'session' | 'local' =
-				local['NeverLockout'] === true ? 'local' : 'session';
-
+			const area = await StorageCore.detectArea();
 			const storedKeys = await this.storage.getMultiple(
 				['VaultKeyB64', 'TagKeyB64'],
 				area,

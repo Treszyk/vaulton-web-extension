@@ -52,7 +52,7 @@ export class VaultListComponent {
 		this.isEditorOpen.set(true);
 	}
 
-	onStartEdit(record: VaultRecord) {
+	onStartEdit(_record: VaultRecord) {
 		this.isEditorOpen.set(true);
 		setTimeout(() => {
 			this.isModalOpen.set(false);

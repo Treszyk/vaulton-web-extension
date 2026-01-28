@@ -1,4 +1,10 @@
-import { Component, ChangeDetectorRef, inject, OnInit } from '@angular/core';
+import {
+	Component,
+	ChangeDetectorRef,
+	inject,
+	OnInit,
+	HostListener,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SessionService } from '../core/auth/session.service';
 import { VaultService } from '../core/vault/vault.service';
@@ -18,12 +24,30 @@ export class AppComponent implements OnInit {
 	auth = inject(SessionService);
 	vault = inject(VaultService);
 
+	private lastResetTime = 0;
+	private readonly RESET_THROTTLE_MS = 30000;
+
 	constructor(private cdr: ChangeDetectorRef) {}
+
+	@HostListener('mousedown')
+	@HostListener('keydown')
+	@HostListener('wheel')
+	@HostListener('touchstart')
+	onUserActivity() {
+		this.resetTimerThrottled();
+	}
+
+	private resetTimerThrottled() {
+		const now = Date.now();
+		if (now - this.lastResetTime > this.RESET_THROTTLE_MS) {
+			this.lastResetTime = now;
+			chrome.runtime.sendMessage({ type: 'RESET_TIMER' });
+		}
+	}
 
 	ngOnInit() {
 		this.auth.tryRestore().then(async () => {
 			if (this.auth.isAuthenticated()) {
-				// Only sync if the local cache is empty
 				await this.vault.ensureReady();
 				if (this.vault.records().length === 0) {
 					this.vault.syncVault();
@@ -70,11 +94,6 @@ export class AppComponent implements OnInit {
 			this.loading = false;
 			this.cdr.detectChanges();
 		}
-	}
-
-	async onTogglePersistence(val: boolean) {
-		await this.auth.toggleNeverLockout(val);
-		this.cdr.detectChanges();
 	}
 
 	async onCheckStatus() {

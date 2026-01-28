@@ -76,9 +76,9 @@ export class StorageCore {
 		await this.setMultiple(items, area);
 	}
 
-	private static async detectArea(): Promise<StorageArea> {
-		const local = await this.get('NeverLockout', 'local');
-		return local === true ? 'local' : 'session';
+	static async detectArea(): Promise<StorageArea> {
+		const strategy = await this.get('LockoutStrategy', 'local');
+		return strategy === 'Persistent' ? 'local' : 'session';
 	}
 
 	private static async execute(

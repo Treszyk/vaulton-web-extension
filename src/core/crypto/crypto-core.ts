@@ -1,6 +1,6 @@
 import { bytesToB64, b64ToBytes } from './b64';
 import { zeroize } from './zeroize';
-import { encryptSplit, SplitGcm } from './aesgcm-split';
+import { encryptSplit } from './aesgcm-split';
 import { hkdfAesGcm256Key, hkdfHmacSha256Key, hkdfVerifierB64 } from './hkdf';
 import { EncryptedValueDto } from './worker/crypto.worker.types';
 import { KdfProvider } from './kdf/kdf';

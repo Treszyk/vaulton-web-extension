@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { AuthApiService } from '../api/auth-api.service';
 import { BrowserStorageService } from '../storage/browser-storage.service';
-import { StorageArea } from '../storage/storage-core';
+import { StorageCore } from '../storage/storage-core';
 import { AuthCryptoService } from './auth-crypto.service';
 import { firstValueFrom } from 'rxjs';
 import { BackgroundAction, BackgroundResponse } from '../messaging';
@@ -15,7 +15,7 @@ export class SessionService {
 	readonly isAuthenticated = signal(false);
 	readonly accountId = signal<string | null>(null);
 	readonly isLocked = signal(true);
-	readonly neverLockout = signal(false);
+	readonly lockoutStrategy = signal<string>('OnQuit');
 
 	constructor() {
 		this.initStorageListener();
@@ -32,18 +32,16 @@ export class SessionService {
 
 	private async syncStateFromStorage(): Promise<void> {
 		const local = await this.storage.getMultiple(
-			['AccountId', 'NeverLockout'],
+			['AccountId', 'LockoutStrategy'],
 			'local',
 		);
 		this.accountId.set(local['AccountId'] || null);
-		this.neverLockout.set(local['NeverLockout'] === true);
+		this.lockoutStrategy.set(local['LockoutStrategy'] || 'OnQuit');
 
-		const activeArea: StorageArea =
-			local['NeverLockout'] === true ? 'local' : 'session';
-		const data = await this.storage.getMultiple(
-			['AccessToken', 'VaultKeyB64'],
-			activeArea,
-		);
+		const data = await this.storage.getSmartMultiple([
+			'AccessToken',
+			'VaultKeyB64',
+		]);
 
 		this.isAuthenticated.set(!!data['AccessToken']);
 		this.isLocked.set(!data['VaultKeyB64']);
@@ -109,8 +107,24 @@ export class SessionService {
 		await this.syncStateFromStorage();
 	}
 
-	async toggleNeverLockout(value: boolean): Promise<void> {
-		await this.storage.set('NeverLockout', value, 'local');
+	async setLockoutStrategy(strategy: string): Promise<void> {
+		const oldArea = await StorageCore.detectArea();
+		await this.storage.set('LockoutStrategy', strategy, 'local');
+		const newArea = await StorageCore.detectArea();
+
+		if (oldArea !== newArea && this.isAuthenticated()) {
+			const keys = [
+				'AccessToken',
+				'RefreshToken',
+				'RefreshExpiresAt',
+				'VaultKeyB64',
+				'TagKeyB64',
+			];
+			const data = await this.storage.getMultiple(keys, oldArea);
+			await this.storage.setMultiple(data, newArea);
+			await this.storage.removeMultiple(keys, oldArea);
+		}
+
 		await this.syncStateFromStorage();
 	}
 

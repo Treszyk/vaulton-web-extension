@@ -17,7 +17,8 @@ export type BackgroundAction =
 	| { type: 'REFRESH' }
 	| { type: 'SYNC_VAULT'; payload: { force?: boolean } }
 	| { type: 'CLEAR_SESSION' }
-	| { type: 'PRE_REGISTER' };
+	| { type: 'PRE_REGISTER' }
+	| { type: 'RESET_TIMER' };
 
 export interface BackgroundResponse<T = any> {
 	success: boolean;

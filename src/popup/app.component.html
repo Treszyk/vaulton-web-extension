@@ -37,8 +37,7 @@
 			<app-login
 				*ngIf="!auth.isAuthenticated()"
 				[loading]="loading"
-				(login)="onLogin($event)"
-				(togglePersistence)="onTogglePersistence($event)">
+				(login)="onLogin($event)">
 			</app-login>
 
 			<app-main-layout *ngIf="auth.isAuthenticated()"> </app-main-layout>

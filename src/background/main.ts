@@ -10,12 +10,16 @@ console.log('[Vaulton Background] Service Worker Initializing...');
 
 browserApi.runtime.onInstalled.addListener(() => {
 	console.log('[Vaulton Background] Installed/Updated: Setting up alarms.');
-	browserApi.alarms.create('vault-sync', { periodInMinutes: 1 });
+	browserApi.alarms.clearAll();
+	browserApi.alarms.create('vault-sync', { periodInMinutes: 15 });
 });
 
 browserApi.alarms.onAlarm.addListener((alarm: any) => {
 	if (alarm.name === 'vault-sync') {
 		auth.syncVault();
+	} else if (alarm.name === 'auto-lock') {
+		console.log('[Background] Auto-lock triggered. Logging out.');
+		auth.logout();
 	}
 });
 
@@ -26,6 +30,13 @@ browserApi.storage.onChanged.addListener((changes: { [key: string]: any }) => {
 		}
 		auth.refreshTokens();
 	}
+
+	if (changes['LockoutStrategy']) {
+		console.log(
+			`[Background] LockoutStrategy changed: ${changes['LockoutStrategy'].newValue}`,
+		);
+		auth.resetLockTimer();
+	}
 });
 
 browserApi.runtime.onMessage.addListener(
@@ -34,6 +45,8 @@ browserApi.runtime.onMessage.addListener(
 		_sender: any,
 		sendResponse: (res: BackgroundResponse) => void,
 	) => {
+		auth.resetLockTimer();
+
 		handleAction(request)
 			.then((data) => sendResponse({ success: true, data }))
 			.catch((err) => {
@@ -63,6 +76,8 @@ async function handleAction(action: BackgroundAction): Promise<any> {
 			return auth.clearSession();
 		case 'PRE_REGISTER':
 			return preRegister();
+		case 'RESET_TIMER':
+			return Promise.resolve();
 		default:
 			throw new Error(`Unknown action: ${(action as any).type}`);
 	}

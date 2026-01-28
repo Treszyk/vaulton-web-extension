@@ -33,7 +33,7 @@ export class VaultService {
 
 	private initStorageListener(): void {
 		if (typeof chrome !== 'undefined' && chrome.storage) {
-			chrome.storage.onChanged.addListener((changes, area) => {
+			chrome.storage.onChanged.addListener((changes, _area) => {
 				if (changes['EncryptedVault'] || changes['VaultSessionKey']) {
 					this.syncStateFromStorage();
 				}

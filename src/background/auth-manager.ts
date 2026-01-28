@@ -9,7 +9,7 @@ import {
 import { bytesToB64 } from '../core/crypto/b64';
 
 export class BackgroundAuthManager {
-	async syncVault(force = false): Promise<boolean> {
+	async syncVault(_force = false): Promise<boolean> {
 		const result = await this.trySyncVault();
 		if (result === 'unauthorized') {
 			console.log(
@@ -241,9 +241,8 @@ export class BackgroundAuthManager {
 		refreshExpiresAt: string,
 		accountId?: string,
 	): Promise<void> {
-		const neverLockout = await StorageCore.get('NeverLockout', 'local');
-		const isNever = neverLockout === true;
-		const otherArea = isNever ? 'session' : 'local';
+		const area = await StorageCore.detectArea();
+		const otherArea = area === 'local' ? 'session' : 'local';
 
 		const data = {
 			AccessToken: accessToken,
@@ -251,7 +250,7 @@ export class BackgroundAuthManager {
 			RefreshExpiresAt: refreshExpiresAt,
 		};
 
-		await StorageCore.setSmartMultiple(data);
+		await StorageCore.setMultiple(data, area);
 		await StorageCore.removeMultiple(
 			['AccessToken', 'RefreshToken', 'RefreshExpiresAt'],
 			otherArea,
@@ -272,7 +271,20 @@ export class BackgroundAuthManager {
 			'VaultSessionKey',
 			'EncryptedVault',
 		];
+		console.log('[Background] Clearing session keys and tokens...');
 		await StorageCore.removeMultiple(keys, 'session');
 		await StorageCore.removeMultiple(keys, 'local');
+	}
+
+	public async resetLockTimer(): Promise<void> {
+		const strategy = await StorageCore.get('LockoutStrategy', 'local');
+
+		await chrome.alarms.clear('auto-lock');
+
+		const minutes = parseInt(strategy);
+		if (!isNaN(minutes) && minutes > 0) {
+			chrome.alarms.create('auto-lock', { delayInMinutes: minutes });
+			console.log(`[Background] Auto-lock timer reset: ${minutes} minutes`);
+		}
 	}
 }

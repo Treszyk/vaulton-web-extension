@@ -16,6 +16,7 @@ import {
 } from 'rxjs';
 import { SessionService } from './session.service';
 import { BrowserStorageService } from '../storage/browser-storage.service';
+import { StorageCore } from '../storage/storage-core';
 
 let refreshInFlight$: Observable<string | null> | null = null;
 
@@ -57,8 +58,7 @@ async function getAccessToken(
 	storage: BrowserStorageService,
 ): Promise<string | null> {
 	try {
-		const local = await storage.getMultiple(['NeverLockout'], 'local');
-		const area = local['NeverLockout'] === true ? 'local' : 'session';
+		const area = await StorageCore.detectArea();
 		const tokens = await storage.getMultiple(['AccessToken'], area);
 		return tokens['AccessToken'] || null;
 	} catch (e) {

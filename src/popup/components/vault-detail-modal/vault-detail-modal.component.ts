@@ -4,7 +4,6 @@ import {
 	Input,
 	Output,
 	signal,
-	inject,
 	OnDestroy,
 	ViewEncapsulation,
 } from '@angular/core';
@@ -68,7 +67,7 @@ export class VaultDetailModalComponent implements OnDestroy {
 		this.revealTimeout = setTimeout(() => this.reveal.set(false), 8000);
 	}
 
-	onDeleteClick(id: string) {
+	onDeleteClick(_id: string) {
 		if (!this.deleteConfirmActive()) {
 			this.deleteConfirmActive.set(true);
 			if (this.deleteTimeout) clearTimeout(this.deleteTimeout);
