@@ -2,6 +2,33 @@ import { API_BASE_URL } from '../config';
 import { StorageCore } from '../core/storage/storage-core';
 
 export class BackgroundAuthManager {
+	async syncVault(): Promise<boolean> {
+		const tokens = await this.getTokens();
+		if (!tokens.accessToken) return false;
+
+		const keys = await StorageCore.getMultiple(
+			['VaultKeyB64', 'TagKeyB64'],
+			'session',
+		);
+		const sessionKeyB64 = await StorageCore.get('VaultSessionKey', 'session');
+
+		if (!keys.VaultKeyB64 || !sessionKeyB64) return false;
+
+		try {
+			// currently background sync is impossible due to problems with spwaning the crypto worker, needs refactoring
+			// CHANGE THIS HERE!!! ONLY MANUAL REFRESH WORKS!!!!
+			const response = await fetch(`${API_BASE_URL}/vault/entries`, {
+				headers: { Authorization: `Bearer ${tokens.accessToken}` },
+			});
+			if (!response.ok) return false;
+			const encryptedEntries = await response.json();
+
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
 	async refreshTokens(): Promise<boolean> {
 		const tokens = await this.getTokens();
 		if (!tokens.refreshToken) {

@@ -1,37 +1,51 @@
 import { Component, ChangeDetectorRef, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SessionService } from '../core/auth/session.service';
+import { VaultService } from '../core/vault/vault.service';
 import { LoginComponent } from './components/login/login.component';
-import { DashboardComponent } from './components/dashboard/dashboard.component';
+import { MainLayoutComponent } from './components/main-layout/main-layout.component';
 
 @Component({
 	selector: 'app-root',
 	standalone: true,
-	imports: [CommonModule, LoginComponent, DashboardComponent],
+	imports: [CommonModule, LoginComponent, MainLayoutComponent],
 	template: `
 		<div
 			class="vaulton-app"
-			[class.unlocked]="!auth.isLocked()">
+			[class.authenticated]="auth.isAuthenticated()">
 			<div class="starfield">
 				<div class="stars"></div>
 				<div class="stars2"></div>
 				<div class="stars3"></div>
 			</div>
 
-			<div class="content-wrapper animate-slide-up">
-				<header>
+			<div class="content-wrapper">
+				<header class="auth-header">
 					<div class="logo-container">
 						<h1 class="logo">Vaulton<span class="dot">.</span></h1>
 						<p class="tagline">Zero-Knowledge Privacy</p>
 					</div>
-					<div
-						class="status-indicator"
-						[class.active]="!auth.isLocked()">
-						{{ auth.isLocked() ? 'Locked' : 'Unlocked' }}
-					</div>
+					<button
+						*ngIf="auth.isAuthenticated()"
+						class="discrete-refresh"
+						(click)="onRefresh()"
+						[class.spinning]="loading"
+						title="Refresh Vault">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+						</svg>
+					</button>
 				</header>
 
-				<main>
+				<main [class.main-full]="auth.isAuthenticated()">
 					<app-login
 						*ngIf="!auth.isAuthenticated()"
 						[loading]="loading"
@@ -39,21 +53,13 @@ import { DashboardComponent } from './components/dashboard/dashboard.component';
 						(togglePersistence)="onTogglePersistence($event)">
 					</app-login>
 
-					<app-dashboard
-						*ngIf="auth.isAuthenticated()"
-						[loading]="loading"
-						(refresh)="onRefresh()"
-						(logout)="onLogout()"
-						(checkStatus)="onCheckStatus()"
-						(wipeData)="onWipeData()">
-					</app-dashboard>
+					<app-main-layout *ngIf="auth.isAuthenticated()"> </app-main-layout>
 				</main>
 
-				<footer>
+				<footer *ngIf="!auth.isAuthenticated()">
 					<div
-						class="error-toast"
-						*ngIf="error"
-						class="animate-shake">
+						class="error-toast animate-shake"
+						*ngIf="error">
 						{{ error }}
 					</div>
 				</footer>
@@ -74,12 +80,33 @@ import { DashboardComponent } from './components/dashboard/dashboard.component';
 					sans-serif;
 				overflow: hidden;
 			}
+			:host ::ng-deep *::-webkit-scrollbar {
+				width: 10px;
+				background: transparent;
+			}
+			:host ::ng-deep *::-webkit-scrollbar-thumb {
+				background: rgba(255, 255, 255, 0.2);
+				border-radius: 4px;
+				border: 2px solid #000;
+				background-clip: padding-box;
+			}
+			:host ::ng-deep *::-webkit-scrollbar-thumb:hover {
+				background: rgba(255, 255, 255, 0.4);
+				border: 2px solid #000;
+				background-clip: padding-box;
+			}
 			.vaulton-app {
 				position: relative;
-				width: 100%;
-				min-height: 500px;
-				padding: 24px;
+				width: 360px;
+				height: 500px;
 				box-sizing: border-box;
+				overflow: hidden;
+				padding: 0;
+				display: flex;
+				flex-direction: column;
+			}
+			.vaulton-app.authenticated {
+				padding: 0;
 			}
 			.starfield {
 				position: absolute;
@@ -143,21 +170,41 @@ import { DashboardComponent } from './components/dashboard/dashboard.component';
 			.content-wrapper {
 				position: relative;
 				z-index: 10;
-			}
-			header {
+				flex: 1;
 				display: flex;
-				justify-content: space-between;
+				flex-direction: column;
+				min-height: 0;
+			}
+			.auth-header {
+				margin-bottom: 24px;
+				text-align: left;
+				padding: 24px 24px 0 24px;
+				z-index: 100;
+				display: flex;
 				align-items: flex-start;
-				margin-bottom: 32px;
+				justify-content: space-between;
+			}
+			.authenticated .auth-header {
+				margin-bottom: 12px;
+			}
+			main {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				min-height: 0;
+			}
+			main.main-full {
+				width: 100%;
 			}
 			.logo {
 				font-size: 24px;
 				font-weight: 900;
 				margin: 0;
 				letter-spacing: -1.5px;
-				background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
+				background: linear-gradient(135deg, #fff 0%, #d4d4d8 100%);
 				-webkit-background-clip: text;
 				-webkit-text-fill-color: transparent;
+				line-height: 1;
 			}
 			.logo .dot {
 				color: #7c3aed;
@@ -167,7 +214,7 @@ import { DashboardComponent } from './components/dashboard/dashboard.component';
 				font-size: 10px;
 				text-transform: uppercase;
 				letter-spacing: 2px;
-				color: #a1a1aa; /* Bump contrast from #71717a */
+				color: #a1a1aa;
 				margin: 4px 0 0 0;
 				font-weight: 600;
 			}
@@ -177,7 +224,7 @@ import { DashboardComponent } from './components/dashboard/dashboard.component';
 				font-weight: 800;
 				text-transform: uppercase;
 				letter-spacing: 1px;
-				color: #a1a1aa; /* Bump contrast */
+				color: #a1a1aa;
 			}
 			.status-indicator.active {
 				color: #a78bfa;
@@ -229,6 +276,40 @@ import { DashboardComponent } from './components/dashboard/dashboard.component';
 					transform: translateX(4px);
 				}
 			}
+			.discrete-refresh {
+				background: rgba(124, 58, 237, 0.1);
+				border: 1px solid rgba(124, 58, 237, 0.3);
+				color: #a78bfa;
+				cursor: pointer;
+				padding: 8px;
+				border-radius: 12px;
+				transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+			.discrete-refresh svg {
+				width: 16px;
+				height: 16px;
+			}
+			.discrete-refresh:hover {
+				background: #7c3aed;
+				border-color: #8b5cf6;
+				color: white;
+				transform: scale(1.05);
+				box-shadow: 0 0 15px rgba(124, 58, 237, 0.4);
+			}
+			.spinning svg {
+				animation: spin 1s linear infinite;
+			}
+			@keyframes spin {
+				from {
+					transform: rotate(0deg);
+				}
+				to {
+					transform: rotate(360deg);
+				}
+			}
 		`,
 	],
 })
@@ -236,11 +317,15 @@ export class AppComponent implements OnInit {
 	loading = false;
 	error = '';
 	auth = inject(SessionService);
+	vault = inject(VaultService);
 
 	constructor(private cdr: ChangeDetectorRef) {}
 
 	ngOnInit() {
 		this.auth.tryRestore().then(() => {
+			if (this.auth.isAuthenticated()) {
+				this.vault.syncVault();
+			}
 			this.cdr.detectChanges();
 		});
 	}
@@ -250,6 +335,7 @@ export class AppComponent implements OnInit {
 		this.error = '';
 		try {
 			await this.auth.login(creds.email, creds.password);
+			await this.vault.syncVault();
 		} catch (e: any) {
 			this.error = e.message || 'Vault Unlock Failed';
 		} finally {
@@ -273,9 +359,9 @@ export class AppComponent implements OnInit {
 		this.loading = true;
 		this.error = '';
 		try {
-			await this.auth.refresh();
+			await this.vault.syncVault(true);
 		} catch (e: any) {
-			this.error = 'Token rotation failed';
+			this.error = 'Vault sync failed';
 		} finally {
 			this.loading = false;
 			this.cdr.detectChanges();

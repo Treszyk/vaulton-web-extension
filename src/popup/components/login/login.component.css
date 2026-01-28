@@ -1,15 +1,20 @@
+:host {
+	display: block;
+	padding: 24px;
+}
 .auth-panel {
 	margin-bottom: 24px;
 }
 .panel-header h2 {
-	font-size: 18px;
-	font-weight: 700;
+	font-size: 20px;
+	font-weight: 800;
 	margin: 0;
+	color: white;
 }
 .panel-header p {
 	font-size: 13px;
-	color: #a1a1aa; /* Bump contrast */
-	margin: 4px 0 20px 0;
+	color: rgba(255, 255, 255, 0.4);
+	margin: 6px 0 24px 0;
 }
 .input-group label {
 	display: block;
@@ -17,7 +22,7 @@
 	font-weight: 700;
 	text-transform: uppercase;
 	letter-spacing: 1px;
-	color: #d4d4d8; /* Bump contrast */
+	color: #d4d4d8;
 	margin-bottom: 8px;
 	margin-left: 4px;
 }
@@ -27,7 +32,7 @@
 	gap: 12px;
 	margin-top: 20px;
 	font-size: 11px;
-	color: #d4d4d8; /* Bump contrast */
+	color: #d4d4d8;
 	padding: 10px 0;
 }
 .loader {
@@ -61,43 +66,50 @@
 }
 input {
 	width: 100%;
-	background: #09090b;
-	border: 1px solid #27272a;
-	border-radius: 12px;
+	background: rgba(38, 38, 38, 0.4);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 14px;
 	padding: 12px 16px;
 	color: #fff;
 	font-size: 14px;
 	box-sizing: border-box;
-	transition: all 0.2s;
+	transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+	outline: none;
 }
 input:focus {
-	outline: none;
-	border-color: #7c3aed;
-	background: #18181b;
-	box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.1);
+	border-color: rgba(124, 58, 237, 0.5);
+	background: rgba(38, 38, 38, 0.6);
+	box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
 }
 .btn-primary {
 	width: 100%;
 	background: #7c3aed;
 	color: #fff;
 	border: none;
-	border-radius: 14px;
-	height: 46px; /* Fixed height */
+	border-radius: 16px;
+	height: 50px;
 	padding: 0 16px;
-	display: flex; /* Centering */
+	display: flex;
 	justify-content: center;
 	align-items: center;
-	font-weight: 700;
-	font-size: 14px;
+	font-weight: 900;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	font-size: 13px;
 	cursor: pointer;
-	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+	box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
 }
 .btn-primary:hover:not(:disabled) {
-	background: #6d28d9;
+	filter: brightness(1.1);
 	transform: translateY(-2px);
+	box-shadow: 0 8px 20px rgba(124, 58, 237, 0.4);
+}
+.btn-primary:active:not(:disabled) {
+	transform: translateY(0) scale(0.98);
 }
 .btn-primary:disabled {
-	opacity: 0.7;
+	opacity: 0.3;
 	cursor: not-allowed;
 }
 .persistence-toggle {

@@ -8,10 +8,13 @@ const auth = new BackgroundAuthManager();
 console.log('[Vaulton Background] Service Worker Initializing...');
 
 browserApi.alarms.create('token-refresh', { periodInMinutes: 15 });
+browserApi.alarms.create('vault-sync', { periodInMinutes: 10 });
 
 browserApi.alarms.onAlarm.addListener((alarm: any) => {
 	if (alarm.name === 'token-refresh') {
 		auth.refreshTokens();
+	} else if (alarm.name === 'vault-sync') {
+		auth.syncVault();
 	}
 });
 

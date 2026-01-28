@@ -6,6 +6,8 @@ import type { PreLoginResponse } from '../api/auth-api.service';
 import type {
 	EncryptedValueDto,
 	CheckStatusResponse,
+	EncryptedEntryResult,
+	DecryptEntryResult,
 } from '../crypto/worker/crypto.worker.types';
 
 @Injectable({ providedIn: 'root' })
@@ -249,6 +251,30 @@ export class AuthCryptoService {
 			);
 			await this.postToWorker('CLEAR_KEYS', {});
 		} catch {}
+	}
+
+	async encryptEntry(
+		plaintextBuffer: ArrayBuffer,
+		aadB64: string,
+		domain?: string,
+	): Promise<EncryptedEntryResult> {
+		return this.postToWorker<EncryptedEntryResult>(
+			'ENCRYPT_ENTRY',
+			{
+				plaintextBuffer,
+				aadB64,
+				domain,
+			},
+			[plaintextBuffer],
+		);
+	}
+
+	async decryptEntry(dto: EncryptedValueDto, aadB64: string): Promise<string> {
+		const res = await this.postToWorker<DecryptEntryResult>('DECRYPT_ENTRY', {
+			dto,
+			aadB64,
+		});
+		return new TextDecoder().decode(res.ptBuffer);
 	}
 
 	private async postToWorker<T>(
