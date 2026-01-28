@@ -1,8 +1,10 @@
-import { FormDetector, LoginForm } from './form-detector';
+import { FormDetector, LoginForm, FormSubmitData } from './form-detector';
 import { ButtonInjector } from './button-injector';
 import { CredentialPicker, CredentialOption } from './credential-picker';
 import { AutofillEngine } from './autofill-engine';
 import { browserApi } from '../core/storage/storage-core';
+import { SavePrompt } from './save-prompt';
+import { getBaseDomain } from './domain-utils';
 
 console.log('[Vaulton] Content script initialized');
 
@@ -10,6 +12,7 @@ const formDetector = new FormDetector();
 const buttonInjector = new ButtonInjector();
 const credentialPicker = new CredentialPicker();
 const autofillEngine = new AutofillEngine();
+const savePrompt = new SavePrompt();
 
 function extractDomain(url: string): string {
 	try {
@@ -117,11 +120,77 @@ function setupForm(form: LoginForm): void {
 	buttonInjector.injectButton(form.passwordInput, (target) =>
 		handleButtonClick(form, target),
 	);
+
+	formDetector.setupSubmitListener(form, handleFormSubmit);
+}
+
+async function handleFormSubmit(data: FormSubmitData): Promise<void> {
+	const currentUrl = window.location.href;
+	const baseDomain = getBaseDomain(currentUrl);
+
+	if (!baseDomain) return;
+
+	try {
+		const response = await browserApi.runtime.sendMessage({
+			type: 'CHECK_CREDENTIAL_EXISTS',
+			payload: {
+				domain: baseDomain,
+				username: data.username,
+				password: data.password,
+			},
+		});
+
+		if (response && response.success && response.data) {
+			const { action } = response.data;
+
+			if (action === 'ignore') {
+				return;
+			}
+
+			savePrompt.show(
+				action === 'save' ? 'save' : 'update',
+				baseDomain,
+				data.username,
+				async (userAction) => {
+					if (userAction === 'never') {
+						return;
+					}
+
+					if (userAction === 'save' || userAction === 'update') {
+						try {
+							await browserApi.runtime.sendMessage({
+								type: 'SAVE_CREDENTIAL',
+								payload: {
+									domain: baseDomain,
+									username: data.username,
+									password: data.password,
+								},
+							});
+						} catch (e) {
+							console.error('[Vaulton] Failed to save credential:', e);
+						}
+					}
+				},
+			);
+		}
+	} catch (e) {
+		console.error('[Vaulton] Form submit handler error:', e);
+	}
 }
 
 function initialize(): void {
+	console.log('[Vaulton] initialize() called');
 	const forms = formDetector.detectForms();
-	forms.forEach(setupForm);
+	console.log('[Vaulton] About to setup', forms.length, 'forms');
+
+	forms.forEach((form, index) => {
+		try {
+			console.log(`[Vaulton] Setting up form ${index + 1}/${forms.length}`);
+			setupForm(form);
+		} catch (e) {
+			console.error('[Vaulton] Error setting up form:', e);
+		}
+	});
 
 	formDetector.observeForms((newForms) => {
 		newForms.forEach(setupForm);

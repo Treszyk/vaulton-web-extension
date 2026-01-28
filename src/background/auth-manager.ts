@@ -6,6 +6,7 @@ import {
 	encryptVaultCache,
 	decryptVaultCache,
 	importSessionKey,
+	encryptVaultEntry,
 } from '../core/crypto/crypto-core';
 import { bytesToB64 } from '../core/crypto/b64';
 
@@ -304,5 +305,177 @@ export class BackgroundAuthManager {
 			console.error('[Background] Failed to decrypt vault:', e);
 			return [];
 		}
+	}
+
+	public async saveVaultRecord(record: {
+		domain: string;
+		username: string;
+		password: string;
+	}): Promise<void> {
+		const vault = await this.getDecryptedVault();
+		if (!vault) {
+			throw new Error('Vault is not available');
+		}
+
+		const baseDomain = record.domain.toLowerCase().replace(/^www\./, '');
+
+		const existingIndex = vault.findIndex(
+			(r: any) => r.website === baseDomain && r.username === record.username,
+		);
+
+		if (existingIndex >= 0) {
+			vault[existingIndex].password = record.password;
+			vault[existingIndex].lastModified = Date.now();
+		} else {
+			vault.push({
+				id: crypto.randomUUID(),
+				title: baseDomain,
+				username: record.username,
+				password: record.password,
+				website: baseDomain,
+				notes: '',
+				createdAt: Date.now(),
+				lastModified: Date.now(),
+			});
+		}
+
+		await this.encryptAndSaveVault(vault);
+	}
+
+	public async saveAndUploadCredential(
+		domain: string,
+		username: string,
+		password: string,
+	): Promise<void> {
+		const { AccessToken } = await StorageCore.getSmartMultiple(['AccessToken']);
+		if (!AccessToken) throw new Error('Not authenticated');
+
+		const keys = await StorageCore.getSmartMultiple([
+			'VaultKeyB64',
+			'TagKeyB64',
+		]);
+		if (!keys.VaultKeyB64 || !keys.TagKeyB64) {
+			throw new Error('Vault keys not available');
+		}
+
+		const vault = (await this.getDecryptedVault()) || [];
+		const baseDomain = domain.toLowerCase().replace(/^www\./, '');
+		const existingRecord = vault.find(
+			(r: any) =>
+				(r.website === baseDomain || r.title === baseDomain) &&
+				r.username === username,
+		);
+
+		let entryId: string;
+		let isUpdate = false;
+
+		if (existingRecord) {
+			entryId = existingRecord.id;
+			isUpdate = true;
+		} else {
+			const preCreateRes = await fetch(
+				`${API_BASE_URL}/vault/entries/pre-create`,
+				{
+					method: 'POST',
+					headers: {
+						Authorization: `Bearer ${AccessToken}`,
+						'Content-Type': 'application/json',
+					},
+				},
+			);
+			if (!preCreateRes.ok)
+				throw new Error(`Pre-create failed: ${preCreateRes.status}`);
+			const { EntryId } = await preCreateRes.json();
+			entryId = EntryId;
+		}
+
+		const { vaultKey, domainTagKey } = await importVaultKeys(
+			keys.VaultKeyB64,
+			keys.TagKeyB64,
+		);
+
+		const recordData = {
+			title: domain,
+			username,
+			password,
+			website: domain,
+			notes: existingRecord?.notes || '',
+			createdAt: existingRecord?.createdAt || Date.now(),
+			lastModified: Date.now(),
+		};
+
+		const aadB64 = bytesToB64(new TextEncoder().encode(entryId));
+		const ptJson = JSON.stringify(recordData);
+		const ptBuffer = new TextEncoder().encode(ptJson);
+
+		const { DomainTag, Payload } = await encryptVaultEntry(
+			vaultKey,
+			domainTagKey,
+			ptBuffer.buffer,
+			aadB64,
+			domain,
+		);
+
+		const url = isUpdate
+			? `${API_BASE_URL}/vault/entries/${entryId}`
+			: `${API_BASE_URL}/vault/entries`;
+		const method = isUpdate ? 'PUT' : 'POST';
+
+		const body = isUpdate
+			? {
+					DomainTag,
+					Payload: {
+						Nonce: Payload.Nonce,
+						CipherText: Payload.CipherText,
+						Tag: Payload.Tag,
+					},
+				}
+			: {
+					EntryId: entryId,
+					DomainTag,
+					Payload: {
+						Nonce: Payload.Nonce,
+						CipherText: Payload.CipherText,
+						Tag: Payload.Tag,
+					},
+				};
+
+		const res = await fetch(url, {
+			method,
+			headers: {
+				Authorization: `Bearer ${AccessToken}`,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify(body),
+		});
+
+		if (!res.ok) throw new Error(`${method} failed: ${res.status}`);
+
+		if (isUpdate) {
+			const index = vault.findIndex((r: any) => r.id === entryId);
+			if (index !== -1) {
+				vault[index] = { ...vault[index], ...recordData };
+			}
+		} else {
+			vault.push({
+				id: entryId,
+				...recordData,
+			});
+		}
+
+		await this.encryptAndSaveVault(vault);
+	}
+
+	private async encryptAndSaveVault(vault: any[]): Promise<void> {
+		const sessionKeyB64 = await StorageCore.get('VaultSessionKey', 'session');
+		if (!sessionKeyB64) {
+			throw new Error('No session key available');
+		}
+
+		const sessionKey = await importSessionKey(sessionKeyB64);
+		const vaultJson = JSON.stringify(vault);
+		const encryptedVault = await encryptVaultCache(sessionKey, vaultJson);
+
+		await StorageCore.set('EncryptedVault', encryptedVault, 'local');
 	}
 }

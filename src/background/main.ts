@@ -80,6 +80,18 @@ async function handleAction(action: BackgroundAction): Promise<any> {
 			return Promise.resolve();
 		case 'GET_CREDENTIALS':
 			return getCredentialsForDomain(action.payload.domain);
+		case 'CHECK_CREDENTIAL_EXISTS':
+			return checkCredentialExists(
+				action.payload.domain,
+				action.payload.username,
+				action.payload.password,
+			);
+		case 'SAVE_CREDENTIAL':
+			return saveCredential(
+				action.payload.domain,
+				action.payload.username,
+				action.payload.password,
+			);
 		default:
 			throw new Error(`Unknown action: ${(action as any).type}`);
 	}
@@ -122,6 +134,61 @@ async function getCredentialsForDomain(
 	} catch (e) {
 		console.error('[Background] Get credentials error:', e);
 		return { credentials: [], locked: false };
+	}
+}
+
+async function checkCredentialExists(
+	domain: string,
+	username: string,
+	password: string,
+): Promise<{ action: 'save' | 'update' | 'ignore'; recordId?: string }> {
+	try {
+		const vault = await auth.getDecryptedVault();
+		if (!vault || vault.length === 0) {
+			return { action: 'save' };
+		}
+
+		const baseDomain = domain.toLowerCase().replace(/^www\./, '');
+
+		const domainRecords = vault.filter((record: any) => {
+			const recordDomain = (record.website || '')
+				.toLowerCase()
+				.replace(/^www\./, '');
+			const parts = recordDomain.split('.');
+			const recordBase =
+				parts.length > 1 ? parts.slice(-2).join('.') : recordDomain;
+			return recordBase === baseDomain || recordDomain === baseDomain;
+		});
+
+		const existingRecord = domainRecords.find(
+			(r: any) => r.username === username,
+		);
+
+		if (!existingRecord) {
+			return { action: 'save' };
+		}
+
+		if (existingRecord.password === password) {
+			return { action: 'ignore' };
+		}
+
+		return { action: 'update', recordId: existingRecord.id };
+	} catch (e) {
+		console.error('[Background] Check credential exists error:', e);
+		return { action: 'save' };
+	}
+}
+
+async function saveCredential(
+	domain: string,
+	username: string,
+	password: string,
+): Promise<void> {
+	try {
+		await auth.saveAndUploadCredential(domain, username, password);
+	} catch (e) {
+		console.error('[Background] Save credential error:', e);
+		throw e;
 	}
 }
 

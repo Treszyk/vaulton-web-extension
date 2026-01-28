@@ -19,7 +19,15 @@ export type BackgroundAction =
 	| { type: 'CLEAR_SESSION' }
 	| { type: 'PRE_REGISTER' }
 	| { type: 'RESET_TIMER' }
-	| { type: 'GET_CREDENTIALS'; payload: { domain: string } };
+	| { type: 'GET_CREDENTIALS'; payload: { domain: string } }
+	| {
+			type: 'CHECK_CREDENTIAL_EXISTS';
+			payload: { domain: string; username: string; password: string };
+	  }
+	| {
+			type: 'SAVE_CREDENTIAL';
+			payload: { domain: string; username: string; password: string };
+	  };
 
 export interface BackgroundResponse<T = any> {
 	success: boolean;
