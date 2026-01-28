@@ -4,7 +4,6 @@ import {
 	Input,
 	Output,
 	signal,
-	ViewEncapsulation,
 	effect,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -20,7 +19,6 @@ import type {
 	imports: [CommonModule, FormsModule],
 	templateUrl: './record-editor.component.html',
 	styleUrls: ['./record-editor.component.css'],
-	encapsulation: ViewEncapsulation.None,
 })
 export class RecordEditorComponent {
 	@Input() record?: VaultRecord;

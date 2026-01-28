@@ -5,7 +5,6 @@ import {
 	Output,
 	signal,
 	OnDestroy,
-	ViewEncapsulation,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import type { VaultRecord } from '../../../core/vault/vault-record.model';
@@ -16,7 +15,6 @@ import type { VaultRecord } from '../../../core/vault/vault-record.model';
 	imports: [CommonModule],
 	templateUrl: './vault-detail-modal.component.html',
 	styleUrls: ['./vault-detail-modal.component.css'],
-	encapsulation: ViewEncapsulation.None,
 })
 export class VaultDetailModalComponent implements OnDestroy {
 	@Input({ required: true }) record!: VaultRecord;
