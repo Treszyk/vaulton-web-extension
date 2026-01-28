@@ -1,53 +1,69 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { VaultApiService, EntryDto } from '../api/vault-api.service';
-import { VaultCryptoService } from './vault-crypto.service';
 import { BrowserStorageService } from '../storage/browser-storage.service';
 import { VaultRecord, VaultRecordInput } from './vault-record.model';
+import { VaultApiService } from '../api/vault-api.service';
+import { VaultCryptoService } from './vault-crypto.service';
+import { BackgroundAction, BackgroundResponse } from '../messaging';
 import { firstValueFrom } from 'rxjs';
-import { bytesToB64, b64ToBytes } from '../crypto/b64';
+import {
+	importSessionKey,
+	decryptVaultCache,
+	encryptVaultCache,
+} from '../crypto/crypto-core';
+import { bytesToB64 } from '../crypto/b64';
 
 @Injectable({ providedIn: 'root' })
 export class VaultService {
+	private readonly storage = inject(BrowserStorageService);
 	private readonly api = inject(VaultApiService);
 	private readonly crypto = inject(VaultCryptoService);
-	private readonly storage = inject(BrowserStorageService);
 
 	private readonly _records = signal<VaultRecord[]>([]);
 	readonly records = this._records.asReadonly();
 	readonly isLoading = signal(false);
 	readonly isReady = signal(false);
 
-	private sessionKey: CryptoKey | null = null;
-	private readonly SESSION_KEY_NAME = 'VaultSessionKey';
 	private readonly LOCAL_VAULT_NAME = 'EncryptedVault';
+	private readonly SESSION_KEY_NAME = 'VaultSessionKey';
 
 	constructor() {
-		this.init();
+		this.initStorageListener();
+		this.syncStateFromStorage();
 	}
 
-	private async init() {
+	private initStorageListener(): void {
+		if (typeof chrome !== 'undefined' && chrome.storage) {
+			chrome.storage.onChanged.addListener((changes, area) => {
+				if (changes['EncryptedVault'] || changes['VaultSessionKey']) {
+					this.syncStateFromStorage();
+				}
+			});
+		}
+	}
+
+	private async syncStateFromStorage(): Promise<void> {
 		try {
-			const sessionData = await this.storage.get(
-				this.SESSION_KEY_NAME,
+			const vaultEncrypted = await this.storage.get(
+				this.LOCAL_VAULT_NAME,
+				'local',
+			);
+			const sessionKeyB64 = await this.storage.get(
+				'VaultSessionKey',
 				'session',
 			);
-			if (sessionData) {
-				this.sessionKey = await crypto.subtle.importKey(
-					'raw',
-					b64ToBytes(sessionData) as any,
-					{ name: 'AES-GCM', length: 256 },
-					false,
-					['encrypt', 'decrypt'],
-				);
 
-				const localData = await this.storage.get(
-					this.LOCAL_VAULT_NAME,
-					'local',
-				);
-				if (localData) {
-					const decrypted = await this.decryptLocal(localData);
-					this._records.set(JSON.parse(decrypted));
+			if (vaultEncrypted && sessionKeyB64) {
+				try {
+					const sessionKey = await importSessionKey(sessionKeyB64);
+					const json = await decryptVaultCache(sessionKey, vaultEncrypted);
+					const records = JSON.parse(json);
+					this._records.set(records);
+				} catch (e) {
+					console.error('Failed to decrypt stored vault', e);
+					this._records.set([]);
 				}
+			} else {
+				this._records.set([]);
 			}
 		} finally {
 			this.isReady.set(true);
@@ -67,37 +83,15 @@ export class VaultService {
 	}
 
 	async syncVault(force = false) {
-		await this.ensureReady();
-
-		if (!force && this._records().length > 0) {
-			return;
-		}
-
-		if (force) {
-			this._records.set([]);
-		}
-
 		this.isLoading.set(true);
 		try {
-			const encryptedEntries = await firstValueFrom(this.api.list());
-			const decryptedRecords: VaultRecord[] = [];
-
-			for (const entry of encryptedEntries) {
-				try {
-					const data = await this.crypto.decryptEntry(entry.Payload, entry.Id);
-					decryptedRecords.push({
-						id: entry.Id,
-						...data,
-					});
-				} catch (e) {
-					console.warn(`Failed to decrypt entry ${entry.Id}`, e);
-				}
+			const res = await this.sendCommand({
+				type: 'SYNC_VAULT',
+				payload: { force },
+			});
+			if (res.success) {
+				await this.syncStateFromStorage();
 			}
-
-			this._records.set(decryptedRecords);
-			await this.persistToLocal(decryptedRecords);
-		} catch (e) {
-			console.error('Sync failed', e);
 		} finally {
 			this.isLoading.set(false);
 		}
@@ -189,62 +183,38 @@ export class VaultService {
 	}
 
 	private async persistToLocal(records: VaultRecord[]) {
-		if (!this.sessionKey) {
-			const key = await crypto.subtle.generateKey(
+		let sessionKeyB64 = await this.storage.get(
+			this.SESSION_KEY_NAME,
+			'session',
+		);
+		let sessionKey: CryptoKey;
+
+		if (!sessionKeyB64) {
+			sessionKey = await crypto.subtle.generateKey(
 				{ name: 'AES-GCM', length: 256 },
 				true,
 				['encrypt', 'decrypt'],
 			);
-			this.sessionKey = key;
-			const exported = await crypto.subtle.exportKey('raw', key);
-			await this.storage.set(
-				this.SESSION_KEY_NAME,
-				bytesToB64(new Uint8Array(exported)),
-				'session',
-			);
+			const raw = await crypto.subtle.exportKey('raw', sessionKey);
+			const b64 = bytesToB64(new Uint8Array(raw));
+			await this.storage.set(this.SESSION_KEY_NAME, b64, 'session');
+		} else {
+			sessionKey = await importSessionKey(sessionKeyB64);
 		}
 
 		const json = JSON.stringify(records);
-		const encrypted = await this.encryptLocal(json);
-		await this.storage.set(this.LOCAL_VAULT_NAME, encrypted, 'local');
+		const encryptedCache = await encryptVaultCache(sessionKey, json);
+
+		await this.storage.set(this.LOCAL_VAULT_NAME, encryptedCache, 'local');
 	}
 
-	private async encryptLocal(plaintext: string): Promise<string> {
-		if (!this.sessionKey) throw new Error('No session key');
-		const iv = crypto.getRandomValues(new Uint8Array(12));
-		const ptBytes = new TextEncoder().encode(plaintext);
-		const ctBuf = await crypto.subtle.encrypt(
-			{ name: 'AES-GCM', iv },
-			this.sessionKey,
-			ptBytes as any,
-		);
-
-		const combined = new Uint8Array(iv.length + ctBuf.byteLength);
-		combined.set(iv, 0);
-		combined.set(new Uint8Array(ctBuf), iv.length);
-
-		return bytesToB64(combined);
+	private sendCommand(action: BackgroundAction): Promise<BackgroundResponse> {
+		return new Promise((resolve) => {
+			chrome.runtime.sendMessage(action, (res) => resolve(res));
+		});
 	}
 
-	private async decryptLocal(combinedB64: string): Promise<string> {
-		if (!this.sessionKey) throw new Error('No session key');
-		const combined = b64ToBytes(combinedB64);
-		const iv = combined.slice(0, 12);
-		const ct = combined.slice(12);
-
-		const ptBuf = await crypto.subtle.decrypt(
-			{ name: 'AES-GCM', iv },
-			this.sessionKey,
-			ct as any,
-		);
-
-		return new TextDecoder().decode(ptBuf);
-	}
-
-	async clearData() {
+	clearData() {
 		this._records.set([]);
-		this.sessionKey = null;
-		await this.storage.remove(this.SESSION_KEY_NAME, 'session');
-		await this.storage.remove(this.LOCAL_VAULT_NAME, 'local');
 	}
 }

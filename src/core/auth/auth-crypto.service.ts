@@ -160,7 +160,7 @@ export class AuthCryptoService {
 		mkWrapPwd: EncryptedValueDto,
 		schemaVer: number,
 		accountId: string,
-	): Promise<void> {
+	): Promise<{ vaultKeyB64: string; tagKeyB64: string }> {
 		const res = await this.postToWorker<{
 			vaultKeyB64: string;
 			tagKeyB64: string;
@@ -170,19 +170,7 @@ export class AuthCryptoService {
 			AccountId: accountId,
 		});
 
-		if (res.vaultKeyB64 && res.tagKeyB64) {
-			const local = await this.storage.getMultiple(['NeverLockout'], 'local');
-			const area: StorageArea =
-				local['NeverLockout'] === true ? 'local' : 'session';
-
-			await this.storage.setMultiple(
-				{
-					VaultKeyB64: res.vaultKeyB64,
-					TagKeyB64: res.tagKeyB64,
-				},
-				area,
-			);
-		}
+		return res;
 	}
 
 	async unlock(
@@ -274,6 +262,20 @@ export class AuthCryptoService {
 			aadB64,
 		});
 		return new TextDecoder().decode(res.ptBuffer);
+	}
+
+	async encryptVaultCache(plaintext: string): Promise<string> {
+		const res = await this.postToWorker<{ result: string }>('ENCRYPT_CACHE', {
+			plaintext,
+		});
+		return res.result;
+	}
+
+	async decryptVaultCache(combinedB64: string): Promise<string> {
+		const res = await this.postToWorker<{ result: string }>('DECRYPT_CACHE', {
+			combinedB64,
+		});
+		return res.result;
 	}
 
 	private async postToWorker<T>(

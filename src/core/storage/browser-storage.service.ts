@@ -51,17 +51,23 @@ export class BrowserStorageService {
 		await StorageCore.clear(area);
 	}
 
+	async getSmart(key: string): Promise<any> {
+		this.log(`[getSmart] key: ${key}`);
+		return StorageCore.getSmart(key);
+	}
+
+	async setSmart(key: string, value: any): Promise<void> {
+		this.log(`[setSmart] key: ${key}`);
+		await StorageCore.setSmart(key, value);
+	}
+
+	async removeSmart(key: string): Promise<void> {
+		this.log(`[removeSmart] key: ${key}`);
+		await StorageCore.removeSmart(key);
+	}
+
 	private log(message: string, level: 'info' | 'error' = 'info'): void {
 		const msg = `[Vaulton Storage] ${message}`;
 		console.log(msg);
-		if (typeof window !== 'undefined' && browserApi?.runtime?.sendMessage) {
-			try {
-				browserApi.runtime.sendMessage({
-					action: 'remoteLog',
-					message: msg,
-					level,
-				});
-			} catch (e) {}
-		}
 	}
 }

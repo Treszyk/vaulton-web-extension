@@ -49,6 +49,38 @@ export class StorageCore {
 		await this.execute('clear', area);
 	}
 
+	static async getSmart(key: string): Promise<any> {
+		const area = await this.detectArea();
+		return this.get(key, area);
+	}
+
+	static async setSmart(key: string, value: any): Promise<void> {
+		const area = await this.detectArea();
+		await this.set(key, value, area);
+	}
+
+	static async removeSmart(key: string): Promise<void> {
+		const area = await this.detectArea();
+		await this.remove(key, area);
+	}
+
+	static async getSmartMultiple(
+		keys: string[],
+	): Promise<{ [key: string]: any }> {
+		const area = await this.detectArea();
+		return this.getMultiple(keys, area);
+	}
+
+	static async setSmartMultiple(items: { [key: string]: any }): Promise<void> {
+		const area = await this.detectArea();
+		await this.setMultiple(items, area);
+	}
+
+	private static async detectArea(): Promise<StorageArea> {
+		const local = await this.get('NeverLockout', 'local');
+		return local === true ? 'local' : 'session';
+	}
+
 	private static async execute(
 		method: string,
 		area: StorageArea,

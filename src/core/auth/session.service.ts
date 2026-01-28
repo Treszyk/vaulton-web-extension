@@ -1,9 +1,10 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { AuthApiService, ExtRefreshResponse } from '../api/auth-api.service';
+import { AuthApiService } from '../api/auth-api.service';
 import { BrowserStorageService } from '../storage/browser-storage.service';
 import { StorageArea } from '../storage/storage-core';
 import { AuthCryptoService } from './auth-crypto.service';
 import { firstValueFrom } from 'rxjs';
+import { BackgroundAction, BackgroundResponse } from '../messaging';
 
 @Injectable({ providedIn: 'root' })
 export class SessionService {
@@ -18,71 +19,18 @@ export class SessionService {
 
 	constructor() {
 		this.initStorageListener();
+		this.syncStateFromStorage();
 	}
 
 	private initStorageListener(): void {
-		if (
-			typeof chrome !== 'undefined' &&
-			chrome.storage &&
-			chrome.storage.onChanged
-		) {
-			chrome.storage.onChanged.addListener((changes, areaName) => {
-				this.handleStorageChange(changes, areaName);
+		if (typeof chrome !== 'undefined' && chrome.storage) {
+			chrome.storage.onChanged.addListener(() => {
+				this.syncStateFromStorage();
 			});
 		}
 	}
 
-	private async handleStorageChange(
-		changes: { [key: string]: chrome.storage.StorageChange },
-		areaName: string,
-	): Promise<void> {
-		const local = await this.storage.getMultiple(['NeverLockout'], 'local');
-		const activeArea = local['NeverLockout'] === true ? 'local' : 'session';
-
-		if (areaName === activeArea) {
-			if (changes['AccessToken']) {
-				const newToken = changes['AccessToken'].newValue;
-				this.isAuthenticated.set(!!newToken);
-				if (newToken) {
-					await this.checkVaultStatus();
-				} else {
-					const currentData = await this.storage.getMultiple(
-						['RefreshToken'],
-						activeArea as any,
-					);
-
-					if (currentData['RefreshToken']) {
-						console.log(
-							'[SessionService] AccessToken removed but RefreshToken exists. Attempting recovery...',
-						);
-						try {
-							await this.refresh();
-							await this.checkVaultStatus();
-						} catch {
-							await this.clearSession();
-							await this.crypto.clearKeys();
-							this.isLocked.set(true);
-						}
-					} else {
-						await this.clearSession();
-						await this.crypto.clearKeys();
-						this.isLocked.set(true);
-					}
-				}
-			}
-		}
-
-		if (areaName === 'local') {
-			if (changes['AccountId']) {
-				this.accountId.set(changes['AccountId'].newValue || null);
-			}
-			if (changes['NeverLockout']) {
-				this.neverLockout.set(changes['NeverLockout'].newValue === true);
-			}
-		}
-	}
-
-	async tryRestore(): Promise<void> {
+	private async syncStateFromStorage(): Promise<void> {
 		const local = await this.storage.getMultiple(
 			['AccountId', 'NeverLockout'],
 			'local',
@@ -90,35 +38,23 @@ export class SessionService {
 		this.accountId.set(local['AccountId'] || null);
 		this.neverLockout.set(local['NeverLockout'] === true);
 
-		const tokens = await this.getTokens();
-		if (tokens.accessToken) {
-			this.isAuthenticated.set(true);
-			await this.checkVaultStatus();
+		const activeArea: StorageArea =
+			local['NeverLockout'] === true ? 'local' : 'session';
+		const data = await this.storage.getMultiple(
+			['AccessToken', 'VaultKeyB64'],
+			activeArea,
+		);
 
+		this.isAuthenticated.set(!!data['AccessToken']);
+		this.isLocked.set(!data['VaultKeyB64']);
+	}
+
+	async tryRestore(): Promise<void> {
+		await this.syncStateFromStorage();
+		if (this.isAuthenticated()) {
 			try {
 				await firstValueFrom(this.api.me());
 			} catch (e) {
-				await this.logout();
-			}
-			return;
-		}
-
-		if (tokens.refreshToken) {
-			if (this.isTokenExpired(tokens.refreshExpiresAt)) {
-				await this.logout();
-				return;
-			}
-
-			console.log(
-				'[Vaulton SessionService] Recovering session from refresh token...',
-			);
-			try {
-				await this.refresh();
-				this.isAuthenticated.set(true);
-				await this.checkVaultStatus();
-				console.log('[Vaulton SessionService] Session recovered');
-			} catch (e) {
-				console.warn('[Vaulton SessionService] Recovery failed', e);
 				await this.logout();
 			}
 		}
@@ -129,168 +65,62 @@ export class SessionService {
 
 		const { verifier } = await this.crypto.buildLogin(password, preLogin);
 
-		const response = await firstValueFrom(this.api.login(accountId, verifier));
+		const startRes = await this.sendCommand({
+			type: 'LOGIN_START',
+			payload: {
+				accountId,
+				verifier,
+			},
+		});
 
-		await this.crypto.finalizeLogin(
-			response.MkWrapPwd,
-			preLogin.CryptoSchemaVer,
-			accountId,
-		);
-
-		await this.saveSession(
-			response.AccessToken,
-			response.RefreshToken,
-			response.RefreshExpiresAt,
-			accountId,
-		);
-
-		this.isAuthenticated.set(true);
-		this.accountId.set(accountId);
-		this.isLocked.set(false);
-	}
-
-	async toggleNeverLockout(value: boolean): Promise<void> {
-		this.neverLockout.set(value);
-		await this.storage.set('NeverLockout', value, 'local');
-
-		if (this.isAuthenticated()) {
-			const tokens = await this.getTokens();
-			if (tokens.accessToken) {
-				await this.saveSession(
-					tokens.accessToken,
-					tokens.refreshToken || '',
-					tokens.refreshExpiresAt || '',
-				);
-
-				const source = value ? 'session' : 'local';
-				const target = value ? 'local' : 'session';
-				const keys = await this.storage.getMultiple(
-					['VaultKeyB64', 'TagKeyB64'],
-					source,
-				);
-
-				if (keys['VaultKeyB64']) {
-					await this.storage.setMultiple(keys, target);
-					await this.storage.removeMultiple(
-						['VaultKeyB64', 'TagKeyB64'],
-						source,
-					);
-				}
-			}
-		}
-	}
-
-	async checkVaultStatus(): Promise<void> {
-		const locked = !(await this.crypto.checkStatus());
-		this.isLocked.set(locked);
-	}
-
-	async refresh(): Promise<ExtRefreshResponse> {
-		const tokens = await this.getTokens();
-		if (!tokens.refreshToken) throw new Error('No refresh token available');
-
-		if (this.isTokenExpired(tokens.refreshExpiresAt)) {
-			await this.logout();
-			throw new Error('Refresh token expired');
+		if (!startRes.success || !startRes.data) {
+			throw new Error(startRes.error || 'Login start failed');
 		}
 
-		const response = await firstValueFrom(
-			this.api.refresh(tokens.refreshToken),
+		const { vaultKeyB64, tagKeyB64 } = await this.crypto.finalizeLogin(
+			startRes.data.MkWrapPwd,
+			startRes.data.CryptoSchemaVer,
+			startRes.data.AccountId,
 		);
-		await this.saveSession(
-			response.AccessToken,
-			response.RefreshToken,
-			response.RefreshExpiresAt,
-		);
-		return response;
-	}
 
-	isTokenExpired(expiresAt: string | null): boolean {
-		if (!expiresAt) return true;
-		const expiry = new Date(expiresAt).getTime();
-		return Date.now() >= expiry;
+		const completeRes = await this.sendCommand({
+			type: 'LOGIN_COMPLETE',
+			payload: {
+				vaultKeyB64,
+				tagKeyB64,
+			},
+		});
+
+		if (!completeRes.success) {
+			throw new Error(completeRes.error || 'Login completion failed');
+		}
+
+		await this.syncStateFromStorage();
 	}
 
 	async logout(): Promise<void> {
-		const tokens = await this.getTokens();
-		if (tokens.refreshToken && !this.isTokenExpired(tokens.refreshExpiresAt)) {
-			try {
-				await firstValueFrom(this.api.logout(tokens.refreshToken));
-			} catch (e) {
-				console.warn('Logout failed on backend', e);
-			}
-		}
-		await this.clearSession();
-		await this.crypto.clearKeys();
-		this.isAuthenticated.set(false);
-		this.isLocked.set(true);
+		await this.sendCommand({ type: 'LOGOUT' });
+		await this.syncStateFromStorage();
 	}
 
-	private async getTokens(): Promise<{
-		accessToken: string | null;
-		refreshToken: string | null;
-		refreshExpiresAt: string | null;
-	}> {
-		const local = await this.storage.getMultiple(['NeverLockout'], 'local');
-		const area: StorageArea =
-			local['NeverLockout'] === true ? 'local' : 'session';
-
-		const data = await this.storage.getMultiple(
-			['AccessToken', 'RefreshToken', 'RefreshExpiresAt'],
-			area,
-		);
-		return {
-			accessToken: data['AccessToken'] || null,
-			refreshToken: data['RefreshToken'] || null,
-			refreshExpiresAt: data['RefreshExpiresAt'] || null,
-		};
+	async refresh(): Promise<void> {
+		const res = await this.sendCommand({ type: 'REFRESH' });
+		if (!res.success) throw new Error(res.error);
+		await this.syncStateFromStorage();
 	}
 
-	private async saveSession(
-		accessToken: string,
-		refreshToken: string,
-		refreshExpiresAt: string,
-		accountId?: string,
-	): Promise<void> {
-		const local = await this.storage.getMultiple(['NeverLockout'], 'local');
-		const neverLockout = local['NeverLockout'] === true;
-
-		const data: any = {
-			AccessToken: accessToken,
-			RefreshToken: refreshToken,
-			RefreshExpiresAt: refreshExpiresAt,
-		};
-
-		if (neverLockout) {
-			await this.storage.setMultiple(data, 'local');
-			await this.storage.removeMultiple(
-				['AccessToken', 'RefreshToken', 'RefreshExpiresAt'],
-				'session',
-			);
-		} else {
-			await this.storage.setMultiple(data, 'session');
-			await this.storage.removeMultiple(
-				['AccessToken', 'RefreshToken', 'RefreshExpiresAt'],
-				'local',
-			);
-		}
-
-		if (accountId) {
-			await this.storage.set('AccountId', accountId, 'local');
-		}
+	async toggleNeverLockout(value: boolean): Promise<void> {
+		await this.storage.set('NeverLockout', value, 'local');
+		await this.syncStateFromStorage();
 	}
 
-	private async clearSession(): Promise<void> {
-		const keys = [
-			'AccessToken',
-			'RefreshToken',
-			'RefreshExpiresAt',
-			'VaultKeyB64',
-			'TagKeyB64',
-			'VaultSessionKey',
-			'EncryptedVault',
-		];
-		await this.storage.removeMultiple(keys, 'session');
-		await this.storage.removeMultiple(keys, 'local');
+	async checkVaultStatus(): Promise<void> {
+		await this.syncStateFromStorage();
+	}
+
+	private sendCommand(action: BackgroundAction): Promise<BackgroundResponse> {
+		return new Promise((resolve) => {
+			chrome.runtime.sendMessage(action, (res) => resolve(res));
+		});
 	}
 }

@@ -21,9 +21,13 @@ export class AppComponent implements OnInit {
 	constructor(private cdr: ChangeDetectorRef) {}
 
 	ngOnInit() {
-		this.auth.tryRestore().then(() => {
+		this.auth.tryRestore().then(async () => {
 			if (this.auth.isAuthenticated()) {
-				this.vault.syncVault();
+				// Only sync if the local cache is empty
+				await this.vault.ensureReady();
+				if (this.vault.records().length === 0) {
+					this.vault.syncVault();
+				}
 			}
 			this.cdr.detectChanges();
 		});

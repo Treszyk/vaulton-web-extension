@@ -1,41 +1,158 @@
 import { API_BASE_URL } from '../config';
 import { StorageCore } from '../core/storage/storage-core';
+import {
+	importVaultKeys,
+	decryptVaultEntry,
+	deriveVaultKeys,
+	encryptVaultCache,
+	importSessionKey,
+} from '../core/crypto/crypto-core';
+import { bytesToB64 } from '../core/crypto/b64';
 
 export class BackgroundAuthManager {
-	async syncVault(): Promise<boolean> {
-		const tokens = await this.getTokens();
-		if (!tokens.accessToken) return false;
+	async syncVault(force = false): Promise<boolean> {
+		const { AccessToken } = await StorageCore.getSmartMultiple(['AccessToken']);
+		if (!AccessToken) return false;
 
-		const keys = await StorageCore.getMultiple(
-			['VaultKeyB64', 'TagKeyB64'],
-			'session',
-		);
-		const sessionKeyB64 = await StorageCore.get('VaultSessionKey', 'session');
+		const keys = await StorageCore.getSmartMultiple([
+			'VaultKeyB64',
+			'TagKeyB64',
+		]);
 
-		if (!keys.VaultKeyB64 || !sessionKeyB64) return false;
+		if (!keys.VaultKeyB64 || !keys.TagKeyB64) return false;
 
 		try {
-			// currently background sync is impossible due to problems with spwaning the crypto worker, needs refactoring
-			// CHANGE THIS HERE!!! ONLY MANUAL REFRESH WORKS!!!!
 			const response = await fetch(`${API_BASE_URL}/vault/entries`, {
-				headers: { Authorization: `Bearer ${tokens.accessToken}` },
+				headers: {
+					Authorization: `Bearer ${AccessToken}`,
+					'Cache-Control': 'no-cache',
+					Pragma: 'no-cache',
+				},
 			});
 			if (!response.ok) return false;
-			const encryptedEntries = await response.json();
 
+			const encryptedEntries = await response.json();
+			const { vaultKey } = await importVaultKeys(
+				keys.VaultKeyB64,
+				keys.TagKeyB64,
+			);
+
+			const decryptedEntries: any[] = [];
+			for (const entry of encryptedEntries) {
+				try {
+					const aadB64 = bytesToB64(new TextEncoder().encode(entry.Id));
+					const ptBuffer = await decryptVaultEntry(
+						vaultKey,
+						entry.Payload,
+						aadB64,
+					);
+					const decrypted = JSON.parse(new TextDecoder().decode(ptBuffer));
+					decryptedEntries.push({ id: entry.Id, ...decrypted });
+				} catch (e) {
+					console.warn(`[Background] Failed to decrypt entry ${entry.Id}`, e);
+				}
+			}
+
+			// Encrypt for local cache storage using ephemeral session key
+			const sessionKey = await this.ensureSessionKey();
+			const encryptedCache = await encryptVaultCache(
+				sessionKey,
+				JSON.stringify(decryptedEntries),
+			);
+
+			await StorageCore.set('EncryptedVault', encryptedCache, 'local');
 			return true;
-		} catch {
+		} catch (e) {
+			console.error('[Background] Sync error:', e);
+			return false;
+		}
+	}
+
+	private async ensureSessionKey(): Promise<CryptoKey> {
+		const stored = await StorageCore.get('VaultSessionKey', 'session');
+		if (stored) {
+			return importSessionKey(stored);
+		}
+
+		const key = await crypto.subtle.generateKey(
+			{ name: 'AES-GCM', length: 256 },
+			true,
+			['encrypt', 'decrypt'],
+		);
+
+		const exported = await crypto.subtle.exportKey('raw', key);
+		const b64 = bytesToB64(new Uint8Array(exported));
+
+		await StorageCore.set('VaultSessionKey', b64, 'session');
+		return key;
+	}
+
+	async startLogin(accountId: string, verifier: string): Promise<any> {
+		try {
+			const response = await fetch(`${API_BASE_URL}/auth/ext/login`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ AccountId: accountId, Verifier: verifier }),
+			});
+
+			if (!response.ok) {
+				throw new Error(`Login failed with status ${response.status}`);
+			}
+
+			const data = await response.json();
+
+			// Save session tokens immediately
+			await this.saveSession(
+				data.AccessToken,
+				data.RefreshToken,
+				data.RefreshExpiresAt,
+				accountId,
+			);
+
+			return {
+				success: true,
+				MkWrapPwd: data.MkWrapPwd,
+				CryptoSchemaVer: data.CryptoSchemaVer || 1, // Default if missing
+				AccountId: accountId,
+			};
+		} catch (e: any) {
+			console.error('[Background] Start Login error:', e);
+			throw e;
+		}
+	}
+
+	async completeLogin(
+		vaultKeyB64: string,
+		tagKeyB64: string,
+	): Promise<boolean> {
+		try {
+			await StorageCore.setSmartMultiple({
+				VaultKeyB64: vaultKeyB64,
+				TagKeyB64: tagKeyB64,
+			});
+			return true;
+		} catch (e) {
+			console.error('[Background] Complete Login error:', e);
 			return false;
 		}
 	}
 
 	async refreshTokens(): Promise<boolean> {
-		const tokens = await this.getTokens();
-		if (!tokens.refreshToken) {
+		const { RefreshToken, RefreshExpiresAt, VaultKeyB64 } =
+			await StorageCore.getSmartMultiple([
+				'RefreshToken',
+				'RefreshExpiresAt',
+				'VaultKeyB64',
+			]);
+
+		if (!RefreshToken) {
+			if (VaultKeyB64) {
+				await this.clearSession();
+			}
 			return false;
 		}
 
-		if (this.isTokenExpired(tokens.refreshExpiresAt)) {
+		if (this.isTokenExpired(RefreshExpiresAt)) {
 			await this.clearSession();
 			return false;
 		}
@@ -43,14 +160,16 @@ export class BackgroundAuthManager {
 		try {
 			const response = await fetch(`${API_BASE_URL}/auth/ext/refresh`, {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({ RefreshToken: tokens.refreshToken }),
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ RefreshToken: RefreshToken }),
 			});
 
 			if (!response.ok) {
-				if (response.status === 401) {
+				if (
+					response.status === 400 ||
+					response.status === 401 ||
+					response.status === 403
+				) {
 					await this.clearSession();
 				}
 				return false;
@@ -69,58 +188,54 @@ export class BackgroundAuthManager {
 		}
 	}
 
+	async logout(): Promise<void> {
+		const { RefreshToken, RefreshExpiresAt } =
+			await StorageCore.getSmartMultiple(['RefreshToken', 'RefreshExpiresAt']);
+
+		if (RefreshToken && !this.isTokenExpired(RefreshExpiresAt)) {
+			try {
+				await fetch(`${API_BASE_URL}/auth/ext/logout`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ RefreshToken: RefreshToken }),
+				});
+			} catch (e) {
+				console.warn('[Background] Logout fetch failed', e);
+			}
+		}
+		await this.clearSession();
+	}
+
 	private isTokenExpired(expiresAt: string | null): boolean {
 		if (!expiresAt) return true;
 		const expiry = new Date(expiresAt).getTime();
 		return Date.now() >= expiry - 30000;
 	}
 
-	private async getTokens(): Promise<{
-		accessToken: string | null;
-		refreshToken: string | null;
-		refreshExpiresAt: string | null;
-	}> {
-		const local = await StorageCore.getMultiple(
-			['NeverLockout', 'AccessToken', 'RefreshToken', 'RefreshExpiresAt'],
-			'local',
-		);
-
-		if (local?.NeverLockout === true) {
-			return {
-				accessToken: local.AccessToken || null,
-				refreshToken: local.RefreshToken || null,
-				refreshExpiresAt: local.RefreshExpiresAt || null,
-			};
-		}
-
-		const session = await StorageCore.getMultiple(
-			['AccessToken', 'RefreshToken', 'RefreshExpiresAt'],
-			'session',
-		);
-
-		return {
-			accessToken: session?.AccessToken || null,
-			refreshToken: session?.RefreshToken || null,
-			refreshExpiresAt: session?.RefreshExpiresAt || null,
-		};
-	}
-
-	private async saveSession(
+	public async saveSession(
 		accessToken: string,
 		refreshToken: string,
 		refreshExpiresAt: string,
+		accountId?: string,
 	): Promise<void> {
 		const neverLockout = await StorageCore.get('NeverLockout', 'local');
+		const isNever = neverLockout === true;
+		const otherArea = isNever ? 'session' : 'local';
+
 		const data = {
 			AccessToken: accessToken,
 			RefreshToken: refreshToken,
 			RefreshExpiresAt: refreshExpiresAt,
 		};
 
-		if (neverLockout === true) {
-			await StorageCore.setMultiple(data, 'local');
-		} else {
-			await StorageCore.setMultiple(data, 'session');
+		await StorageCore.setSmartMultiple(data);
+		await StorageCore.removeMultiple(
+			['AccessToken', 'RefreshToken', 'RefreshExpiresAt'],
+			otherArea,
+		);
+
+		if (accountId) {
+			await StorageCore.set('AccountId', accountId, 'local');
 		}
 	}
 

@@ -83,6 +83,14 @@ export type WorkerRequest =
 				vaultKeyB64: string;
 				tagKeyB64: string;
 			};
+	  }
+	| {
+			type: 'ENCRYPT_CACHE';
+			payload: { plaintext: string };
+	  }
+	| {
+			type: 'DECRYPT_CACHE';
+			payload: { combinedB64: string };
 	  };
 
 export interface WorkerResponseEnvelope<T> {
