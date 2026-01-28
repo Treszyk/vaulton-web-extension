@@ -246,7 +246,7 @@ export class AuthCryptoService {
 	async clearKeys(): Promise<void> {
 		try {
 			await this.storage.removeMultiple(
-				['VaultKeyB64', 'TagKeyB64'],
+				['VaultKeyB64', 'TagKeyB64', 'VaultSessionKey'],
 				'session',
 			);
 			await this.postToWorker('CLEAR_KEYS', {});

@@ -64,6 +64,7 @@ export class BackgroundAuthManager {
 			);
 			return true;
 		} catch (error) {
+			console.error('[BackgroundAuthManager] Refresh error:', error);
 			return false;
 		}
 	}
@@ -123,13 +124,15 @@ export class BackgroundAuthManager {
 		}
 	}
 
-	private async clearSession(): Promise<void> {
+	public async clearSession(): Promise<void> {
 		const keys = [
 			'AccessToken',
 			'RefreshToken',
 			'RefreshExpiresAt',
 			'VaultKeyB64',
 			'TagKeyB64',
+			'VaultSessionKey',
+			'EncryptedVault',
 		];
 		await StorageCore.removeMultiple(keys, 'session');
 		await StorageCore.removeMultiple(keys, 'local');

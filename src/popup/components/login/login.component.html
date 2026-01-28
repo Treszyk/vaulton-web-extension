@@ -10,7 +10,7 @@
 			<div class="input-wrapper">
 				<input
 					type="text"
-					[(ngModel)]="email"
+					[(ngModel)]="accountId"
 					placeholder="vault-xxxx-xxxx" />
 				<i class="icon-user"></i>
 			</div>
@@ -32,7 +32,7 @@
 	<button
 		class="btn-primary"
 		(click)="onLogin()"
-		[disabled]="loading || !email || !password">
+		[disabled]="loading || !accountId || !password">
 		<span
 			*ngIf="!loading"
 			class="btn-text"

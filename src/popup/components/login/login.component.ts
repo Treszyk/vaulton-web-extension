@@ -1,4 +1,11 @@
-import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import {
+	Component,
+	EventEmitter,
+	Input,
+	Output,
+	inject,
+	effect,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SessionService } from '../../../core/auth/session.service';
@@ -15,13 +22,22 @@ export class LoginComponent {
 	@Output() login = new EventEmitter<{ email: string; password: string }>();
 	@Output() togglePersistence = new EventEmitter<boolean>();
 
-	email = '';
-	password = '';
 	auth = inject(SessionService);
+	accountId = '';
+	password = '';
+
+	constructor() {
+		effect(() => {
+			const savedId = this.auth.accountId();
+			if (savedId && !this.accountId) {
+				this.accountId = savedId;
+			}
+		});
+	}
 
 	onLogin() {
-		if (this.email && this.password) {
-			this.login.emit({ email: this.email, password: this.password });
+		if (this.accountId && this.password) {
+			this.login.emit({ email: this.accountId, password: this.password });
 		}
 	}
 

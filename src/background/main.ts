@@ -18,6 +18,30 @@ browserApi.alarms.onAlarm.addListener((alarm: any) => {
 	}
 });
 
+browserApi.storage.onChanged.addListener(
+	(changes: { [key: string]: any }, area: string) => {
+		if (changes['AccessToken'] && !changes['AccessToken'].newValue) {
+			if (changes['RefreshToken'] && !changes['RefreshToken'].newValue) {
+				return;
+			}
+
+			console.log(
+				'[Vaulton Background] AccessToken missing. Attempting restoration...',
+			);
+			auth.refreshTokens().then((success) => {
+				if (!success) {
+					console.warn(
+						'[Vaulton Background] Restoration failed. Wiping session!',
+					);
+					auth.clearSession();
+				} else {
+					console.log('[Vaulton Background] Session restored.');
+				}
+			});
+		}
+	},
+);
+
 browserApi.runtime.onMessage.addListener(
 	(request: any, _sender: any, sendResponse: any) => {
 		if (request.action === 'preRegister') {

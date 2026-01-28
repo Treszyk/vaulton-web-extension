@@ -45,6 +45,29 @@ export class SessionService {
 				this.isAuthenticated.set(!!newToken);
 				if (newToken) {
 					await this.checkVaultStatus();
+				} else {
+					const currentData = await this.storage.getMultiple(
+						['RefreshToken'],
+						activeArea as any,
+					);
+
+					if (currentData['RefreshToken']) {
+						console.log(
+							'[SessionService] AccessToken removed but RefreshToken exists. Attempting recovery...',
+						);
+						try {
+							await this.refresh();
+							await this.checkVaultStatus();
+						} catch {
+							await this.clearSession();
+							await this.crypto.clearKeys();
+							this.isLocked.set(true);
+						}
+					} else {
+						await this.clearSession();
+						await this.crypto.clearKeys();
+						this.isLocked.set(true);
+					}
 				}
 			}
 		}
@@ -264,6 +287,8 @@ export class SessionService {
 			'RefreshExpiresAt',
 			'VaultKeyB64',
 			'TagKeyB64',
+			'VaultSessionKey',
+			'EncryptedVault',
 		];
 		await this.storage.removeMultiple(keys, 'session');
 		await this.storage.removeMultiple(keys, 'local');

@@ -348,6 +348,7 @@ export class AppComponent implements OnInit {
 		this.error = '';
 		try {
 			await this.auth.logout();
+			await this.vault.clearData();
 		} catch (e: any) {
 			this.error = 'Logout sequence interrupted';
 		} finally {
