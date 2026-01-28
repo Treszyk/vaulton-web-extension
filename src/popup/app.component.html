@@ -1,0 +1,55 @@
+<div
+	class="vaulton-app"
+	[class.authenticated]="auth.isAuthenticated()">
+	<div class="starfield">
+		<div class="stars"></div>
+		<div class="stars2"></div>
+		<div class="stars3"></div>
+	</div>
+
+	<div class="content-wrapper">
+		<header class="auth-header">
+			<div class="logo-container">
+				<h1 class="logo">Vaulton<span class="dot">.</span></h1>
+				<p class="tagline">Zero-Knowledge Privacy</p>
+			</div>
+			<button
+				*ngIf="auth.isAuthenticated()"
+				class="discrete-refresh"
+				(click)="onRefresh()"
+				[class.spinning]="loading"
+				title="Refresh Vault">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+				</svg>
+			</button>
+		</header>
+
+		<main [class.main-full]="auth.isAuthenticated()">
+			<app-login
+				*ngIf="!auth.isAuthenticated()"
+				[loading]="loading"
+				(login)="onLogin($event)"
+				(togglePersistence)="onTogglePersistence($event)">
+			</app-login>
+
+			<app-main-layout *ngIf="auth.isAuthenticated()"> </app-main-layout>
+		</main>
+
+		<footer *ngIf="!auth.isAuthenticated()">
+			<div
+				class="error-toast animate-shake"
+				*ngIf="error">
+				{{ error }}
+			</div>
+		</footer>
+	</div>
+</div>

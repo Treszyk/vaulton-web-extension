@@ -1,0 +1,141 @@
+<div
+	class="modal-sheet"
+	[class.is-closing]="isClosing()"
+	(click)="$event.stopPropagation()">
+	<div class="modal-header">
+		<div class="header-info">
+			<h2 class="editor-title">
+				{{ record ? 'Edit Secret' : 'Add a New Secret' }}
+			</h2>
+			<p class="editor-subtitle">Locally Encrypted Before Transit</p>
+		</div>
+		<button
+			(click)="triggerClose()"
+			class="close-btn">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="w-5 h-5"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor">
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M6 18L18 6M6 6l12 12" />
+			</svg>
+		</button>
+	</div>
+
+	<div class="modal-body">
+		<form
+			(submit)="submit($event)"
+			class="editor-form">
+			<div class="form-grid">
+				<div class="form-group">
+					<label>Title</label>
+					<input
+						type="text"
+						name="title"
+						[(ngModel)]="form.title"
+						required
+						placeholder="e.g. My Google Account" />
+				</div>
+
+				<div class="form-group">
+					<label>Website</label>
+					<input
+						type="text"
+						name="website"
+						[(ngModel)]="form.website"
+						placeholder="e.g. google.com" />
+				</div>
+
+				<div class="form-group">
+					<label>Username / Email</label>
+					<input
+						type="text"
+						name="username"
+						[(ngModel)]="form.username"
+						required
+						placeholder="email@example.com" />
+				</div>
+
+				<div class="form-group">
+					<label>Password</label>
+					<div class="password-wrapper">
+						<input
+							[type]="showPwd() ? 'text' : 'password'"
+							name="password"
+							[(ngModel)]="form.password"
+							required
+							placeholder="••••••••••••" />
+						<button
+							type="button"
+							(click)="showPwd.set(!showPwd())"
+							class="eye-btn">
+							<svg
+								*ngIf="!showPwd()"
+								class="w-4 h-4"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor">
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+							</svg>
+							<svg
+								*ngIf="showPwd()"
+								class="w-4 h-4 text-purple"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor">
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+							</svg>
+						</button>
+					</div>
+					<button
+						type="button"
+						(click)="generatePassword()"
+						class="gen-btn">
+						Auto-Generate Password
+					</button>
+				</div>
+			</div>
+
+			<div class="form-group">
+				<label>Notes</label>
+				<textarea
+					name="notes"
+					[(ngModel)]="form.notes"
+					rows="3"
+					placeholder="Private annotations..."></textarea>
+			</div>
+
+			<div class="form-actions">
+				<button
+					type="submit"
+					[disabled]="isSubmitting() || !isValid()"
+					class="btn-primary">
+					<div
+						*ngIf="isSubmitting()"
+						class="spinner"></div>
+					<span *ngIf="!isSubmitting()">
+						{{ record ? 'Update' : 'Save Secret' }}
+					</span>
+				</button>
+			</div>
+		</form>
+	</div>
+</div>

@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { VaultApiService, EntryDto } from '../api/vault-api.service';
 import { VaultCryptoService } from './vault-crypto.service';
 import { BrowserStorageService } from '../storage/browser-storage.service';
-import { VaultRecord } from './vault-record.model';
+import { VaultRecord, VaultRecordInput } from './vault-record.model';
 import { firstValueFrom } from 'rxjs';
 import { bytesToB64, b64ToBytes } from '../crypto/b64';
 
@@ -90,18 +90,99 @@ export class VaultService {
 						...data,
 					});
 				} catch (e) {
-					console.warn(`[VaultService] Failed to decrypt entry ${entry.Id}`, e);
+					console.warn(`Failed to decrypt entry ${entry.Id}`, e);
 				}
 			}
 
 			this._records.set(decryptedRecords);
-
-			this._records.set(decryptedRecords);
-
 			await this.persistToLocal(decryptedRecords);
-			console.log('[VaultService] Sync complete and persisted.');
 		} catch (e) {
-			console.error('[VaultService] Sync failed', e);
+			console.error('Sync failed', e);
+		} finally {
+			this.isLoading.set(false);
+		}
+	}
+
+	async addRecord(input: VaultRecordInput) {
+		this.isLoading.set(true);
+		try {
+			const { EntryId } = await firstValueFrom(this.api.preCreate());
+
+			const encrypted = await this.crypto.encryptEntry(
+				input,
+				input.website || '',
+				EntryId,
+			);
+
+			await firstValueFrom(
+				this.api.create({
+					EntryId,
+					DomainTag: encrypted.DomainTag,
+					Payload: encrypted.Payload,
+				}),
+			);
+
+			const newRecord: VaultRecord = { ...input, id: EntryId };
+			const current = this._records();
+			const updated = [newRecord, ...current];
+			this._records.set(updated);
+			await this.persistToLocal(updated);
+
+			return true;
+		} catch (e) {
+			console.error('Add record failed', e);
+			throw e;
+		} finally {
+			this.isLoading.set(false);
+		}
+	}
+
+	async updateRecord(id: string, input: VaultRecordInput) {
+		this.isLoading.set(true);
+		try {
+			const encrypted = await this.crypto.encryptEntry(
+				input,
+				input.website || '',
+				id,
+			);
+
+			await firstValueFrom(
+				this.api.update(id, {
+					DomainTag: encrypted.DomainTag,
+					Payload: encrypted.Payload,
+				}),
+			);
+
+			const currentList = this._records();
+			const updated = currentList.map((r) =>
+				r.id === id ? { ...r, ...input } : r,
+			);
+			this._records.set(updated);
+			await this.persistToLocal(updated);
+
+			return true;
+		} catch (e) {
+			console.error('Update record failed', e);
+			throw e;
+		} finally {
+			this.isLoading.set(false);
+		}
+	}
+
+	async deleteRecord(id: string) {
+		this.isLoading.set(true);
+		try {
+			await firstValueFrom(this.api.delete(id));
+
+			const current = this._records();
+			const updated = current.filter((r) => r.id !== id);
+			this._records.set(updated);
+			await this.persistToLocal(updated);
+
+			return true;
+		} catch (e) {
+			console.error('Delete record failed', e);
+			throw e;
 		} finally {
 			this.isLoading.set(false);
 		}

@@ -85,7 +85,6 @@ export class AuthCryptoService {
 					});
 				});
 
-				// Direct send to avoid recursion
 				this.worker.postMessage({
 					id,
 					payload: {
