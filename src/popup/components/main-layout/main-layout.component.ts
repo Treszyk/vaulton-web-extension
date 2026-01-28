@@ -190,7 +190,7 @@ type Tab = 'vault' | 'security' | 'settings';
 				justify-content: center;
 				gap: 4px;
 				padding: 10px 0;
-				color: rgba(255, 255, 255, 0.4);
+				color: #a1a1aa;
 				cursor: pointer;
 				transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 				position: relative;
@@ -243,7 +243,7 @@ type Tab = 'vault' | 'security' | 'settings';
 				flex-direction: column;
 				align-items: center;
 				gap: 16px;
-				color: var(--v-text-muted);
+				color: #a1a1aa;
 				text-align: center;
 				padding: 40px;
 			}
@@ -251,7 +251,7 @@ type Tab = 'vault' | 'security' | 'settings';
 			.large-icon {
 				width: 64px;
 				height: 64px;
-				color: var(--v-grey-light);
+				color: #a1a1aa;
 			}
 
 			.empty-state h3 {
@@ -263,7 +263,7 @@ type Tab = 'vault' | 'security' | 'settings';
 			.refresh-btn {
 				background: transparent;
 				border: none;
-				color: rgba(255, 255, 255, 0.4);
+				color: #a1a1aa;
 				cursor: pointer;
 				padding: 8px;
 				border-radius: 50%;

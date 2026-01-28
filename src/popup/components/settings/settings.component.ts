@@ -88,7 +88,7 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 				overflow-y: auto;
 				overflow-x: hidden;
 				padding: 24px 20px;
-				background: #000;
+				background: transparent;
 				display: flex;
 				flex-direction: column;
 			}
@@ -112,7 +112,7 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 			}
 
 			.section-desc {
-				color: rgba(255, 255, 255, 0.4);
+				color: #a1a1aa;
 				font-size: 11px;
 				font-weight: 600;
 				margin: 0 0 24px 0;
@@ -164,7 +164,7 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 			}
 
 			.item-desc {
-				color: rgba(255, 255, 255, 0.4);
+				color: #a1a1aa;
 				font-size: 11px;
 				margin: 0;
 				font-weight: 600;
