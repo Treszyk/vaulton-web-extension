@@ -1,10 +1,9 @@
 /// <reference types="chrome"/>
 import { API_BASE_URL } from '../config';
 import { BackgroundAuthManager } from './auth-manager';
+import { browserApi } from '../core/storage/storage-core';
 
 const auth = new BackgroundAuthManager();
-const browserApi: any =
-	(globalThis as any).browser || (globalThis as any).chrome;
 
 console.log('[Vaulton Background] Service Worker Initializing...');
 

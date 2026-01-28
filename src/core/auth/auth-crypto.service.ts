@@ -1,9 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { CryptoWorkerFactory } from '../crypto/worker/crypto-worker.factory';
-import {
-	BrowserStorageService,
-	StorageArea,
-} from '../storage/browser-storage.service';
+import { BrowserStorageService } from '../storage/browser-storage.service';
+import { StorageArea } from '../storage/storage-core';
 import type { PreLoginResponse } from '../api/auth-api.service';
 import type {
 	EncryptedValueDto,

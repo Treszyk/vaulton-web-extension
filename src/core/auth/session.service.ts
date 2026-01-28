@@ -1,9 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { AuthApiService, ExtRefreshResponse } from '../api/auth-api.service';
-import {
-	BrowserStorageService,
-	StorageArea,
-} from '../storage/browser-storage.service';
+import { BrowserStorageService } from '../storage/browser-storage.service';
+import { StorageArea } from '../storage/storage-core';
 import { AuthCryptoService } from './auth-crypto.service';
 import { firstValueFrom } from 'rxjs';
 
@@ -17,6 +15,49 @@ export class SessionService {
 	readonly accountId = signal<string | null>(null);
 	readonly isLocked = signal(true);
 	readonly neverLockout = signal(false);
+
+	constructor() {
+		this.initStorageListener();
+	}
+
+	private initStorageListener(): void {
+		if (
+			typeof chrome !== 'undefined' &&
+			chrome.storage &&
+			chrome.storage.onChanged
+		) {
+			chrome.storage.onChanged.addListener((changes, areaName) => {
+				this.handleStorageChange(changes, areaName);
+			});
+		}
+	}
+
+	private async handleStorageChange(
+		changes: { [key: string]: chrome.storage.StorageChange },
+		areaName: string,
+	): Promise<void> {
+		const local = await this.storage.getMultiple(['NeverLockout'], 'local');
+		const activeArea = local['NeverLockout'] === true ? 'local' : 'session';
+
+		if (areaName === activeArea) {
+			if (changes['AccessToken']) {
+				const newToken = changes['AccessToken'].newValue;
+				this.isAuthenticated.set(!!newToken);
+				if (newToken) {
+					await this.checkVaultStatus();
+				}
+			}
+		}
+
+		if (areaName === 'local') {
+			if (changes['AccountId']) {
+				this.accountId.set(changes['AccountId'].newValue || null);
+			}
+			if (changes['NeverLockout']) {
+				this.neverLockout.set(changes['NeverLockout'].newValue === true);
+			}
+		}
+	}
 
 	async tryRestore(): Promise<void> {
 		const local = await this.storage.getMultiple(
@@ -217,13 +258,14 @@ export class SessionService {
 	}
 
 	private async clearSession(): Promise<void> {
-		await this.storage.removeMultiple(
-			['AccessToken', 'RefreshToken', 'RefreshExpiresAt'],
-			'session',
-		);
-		await this.storage.removeMultiple(
-			['AccessToken', 'RefreshToken', 'RefreshExpiresAt'],
-			'local',
-		);
+		const keys = [
+			'AccessToken',
+			'RefreshToken',
+			'RefreshExpiresAt',
+			'VaultKeyB64',
+			'TagKeyB64',
+		];
+		await this.storage.removeMultiple(keys, 'session');
+		await this.storage.removeMultiple(keys, 'local');
 	}
 }

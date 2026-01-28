@@ -1,7 +1,5 @@
 import { API_BASE_URL } from '../config';
-
-const browserApi: any =
-	(globalThis as any).browser || (globalThis as any).chrome;
+import { StorageCore } from '../core/storage/storage-core';
 
 export class BackgroundAuthManager {
 	async refreshTokens(): Promise<boolean> {
@@ -54,12 +52,10 @@ export class BackgroundAuthManager {
 		refreshToken: string | null;
 		refreshExpiresAt: string | null;
 	}> {
-		const local = await this.executeStorage('get', 'local', [
-			'NeverLockout',
-			'AccessToken',
-			'RefreshToken',
-			'RefreshExpiresAt',
-		]);
+		const local = await StorageCore.getMultiple(
+			['NeverLockout', 'AccessToken', 'RefreshToken', 'RefreshExpiresAt'],
+			'local',
+		);
 
 		if (local?.NeverLockout === true) {
 			return {
@@ -69,11 +65,10 @@ export class BackgroundAuthManager {
 			};
 		}
 
-		const session = await this.executeStorage('get', 'session', [
-			'AccessToken',
-			'RefreshToken',
-			'RefreshExpiresAt',
-		]);
+		const session = await StorageCore.getMultiple(
+			['AccessToken', 'RefreshToken', 'RefreshExpiresAt'],
+			'session',
+		);
 
 		return {
 			accessToken: session?.AccessToken || null,
@@ -87,72 +82,29 @@ export class BackgroundAuthManager {
 		refreshToken: string,
 		refreshExpiresAt: string,
 	): Promise<void> {
-		const local = await this.executeStorage('get', 'local', ['NeverLockout']);
+		const neverLockout = await StorageCore.get('NeverLockout', 'local');
 		const data = {
 			AccessToken: accessToken,
 			RefreshToken: refreshToken,
 			RefreshExpiresAt: refreshExpiresAt,
 		};
 
-		if (local?.NeverLockout === true) {
-			await this.executeStorage('set', 'local', data);
+		if (neverLockout === true) {
+			await StorageCore.setMultiple(data, 'local');
 		} else {
-			await this.executeStorage('set', 'session', data);
+			await StorageCore.setMultiple(data, 'session');
 		}
 	}
 
 	private async clearSession(): Promise<void> {
-		const keys = ['AccessToken', 'RefreshToken', 'RefreshExpiresAt'];
-		await this.executeStorage('remove', 'session', keys);
-		await this.executeStorage('remove', 'local', keys);
-	}
-
-	private async executeStorage(
-		method: string,
-		area: 'local' | 'session',
-		...args: any[]
-	): Promise<any> {
-		if (!browserApi || !browserApi.storage) return;
-		const handle =
-			area === 'session'
-				? browserApi.storage.session || browserApi.storage.local
-				: browserApi.storage.local;
-
-		const isSession = handle === browserApi.storage.session;
-		console.log(
-			`[Background Vaulton] Storage API: ${isSession ? 'session' : 'local'} (Namespace: ${!!(globalThis as any).browser ? 'browser' : 'chrome'})`,
-		);
-
-		return new Promise((resolve, reject) => {
-			try {
-				let resolved = false;
-				const callback = (data: any) => {
-					if (resolved) return;
-					resolved = true;
-					if (browserApi.runtime?.lastError)
-						reject(browserApi.runtime.lastError);
-					else resolve(data);
-				};
-
-				const res = handle[method](...args, callback);
-				if (res && typeof res.then === 'function') {
-					res
-						.then((val: any) => {
-							if (!resolved) {
-								resolved = true;
-								resolve(val);
-							}
-						})
-						.catch((err: any) => {
-							if (!resolved) {
-								resolved = true;
-								reject(err);
-							}
-						});
-				}
-			} catch (e) {
-				reject(e);
-			}
-		});
+		const keys = [
+			'AccessToken',
+			'RefreshToken',
+			'RefreshExpiresAt',
+			'VaultKeyB64',
+			'TagKeyB64',
+		];
+		await StorageCore.removeMultiple(keys, 'session');
+		await StorageCore.removeMultiple(keys, 'local');
 	}
 }
