@@ -93,11 +93,11 @@ export class FormDetector {
 			};
 			form.formElement.addEventListener('submit', listener, { capture: true });
 
-			const allButtons = form.formElement.querySelectorAll(
-				'button, input[type="submit"], input[type="button"]',
+			const submitButtons = form.formElement.querySelectorAll(
+				'button[type="submit"], button:not([type]), input[type="submit"]',
 			);
 
-			allButtons.forEach((btn) => {
+			submitButtons.forEach((btn) => {
 				const buttonEl = btn as HTMLButtonElement | HTMLInputElement;
 
 				const buttonListener = () => {

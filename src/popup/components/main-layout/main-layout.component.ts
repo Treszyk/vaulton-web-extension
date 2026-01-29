@@ -16,7 +16,8 @@ type Tab = 'vault' | 'security' | 'settings';
 
 				<div
 					class="placeholder-tab"
-					*ngIf="activeTab() === 'security'">
+					*ngIf="activeTab() === 'security'"
+					style="display: none">
 					<div class="empty-state">
 						<svg
 							class="large-icon"
@@ -59,7 +60,8 @@ type Tab = 'vault' | 'security' | 'settings';
 				<button
 					class="nav-tab"
 					[class.active]="activeTab() === 'security'"
-					(click)="setTab('security')">
+					(click)="setTab('security')"
+					style="display: none">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						fill="none"
@@ -120,7 +122,6 @@ type Tab = 'vault' | 'security' | 'settings';
 				overflow: hidden;
 			}
 
-			/* Custom Scrollbar */
 			.content-area::-webkit-scrollbar {
 				width: 4px;
 				background: transparent;
@@ -297,7 +298,7 @@ export class MainLayoutComponent {
 	}
 
 	getIndicatorWidth() {
-		return `calc((100% - 32px) / 3)`;
+		return `calc((100% - 32px) / 2)`;
 	}
 
 	getIndicatorTransform() {
@@ -305,8 +306,8 @@ export class MainLayoutComponent {
 			this.activeTab() === 'vault'
 				? 0
 				: this.activeTab() === 'security'
-					? 1
-					: 2;
+					? 0
+					: 1;
 		return `translateX(${index * 100}%)`;
 	}
 }
