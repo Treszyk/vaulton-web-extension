@@ -70,7 +70,7 @@ export class CredentialPicker {
 		`;
 
 		picker.innerHTML = `
-			<div style="margin-bottom: 12px; color: #a855f7;">
+			<div style="display: flex !important; justify-content: center !important; margin-bottom: 12px; color: #a855f7;">
 				<svg style="width: 32px; height: 32px;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
 					<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
 					<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
@@ -301,16 +301,27 @@ export class CredentialPicker {
 		const spaceBelow = window.innerHeight - rect.bottom;
 		const spaceAbove = rect.top;
 
-		if (spaceBelow >= 300 || spaceBelow > spaceAbove) {
+		if (spaceBelow < 250 && spaceAbove > spaceBelow) {
+			picker.style.setProperty(
+				'bottom',
+				`${window.innerHeight - rect.top - window.scrollY + 4}px`,
+				'important',
+			);
+			picker.style.setProperty(
+				'max-height',
+				`${spaceAbove - 10}px`,
+				'important',
+			);
+		} else {
 			picker.style.setProperty(
 				'top',
 				`${rect.bottom + window.scrollY + 4}px`,
 				'important',
 			);
-		} else {
+			const potentialHeight = Math.min(360, spaceBelow - 10);
 			picker.style.setProperty(
-				'bottom',
-				`${window.innerHeight - rect.top - window.scrollY + 4}px`,
+				'max-height',
+				`${potentialHeight}px`,
 				'important',
 			);
 		}

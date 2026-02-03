@@ -13,6 +13,10 @@ export class ButtonInjector {
 		input: HTMLInputElement,
 		onClick: (target: HTMLInputElement) => void,
 	): VaultonButton | null {
+		if (input.readOnly || input.disabled) {
+			return null;
+		}
+
 		if (this.buttons.has(input)) {
 			return this.buttons.get(input)!;
 		}
@@ -119,21 +123,6 @@ export class ButtonInjector {
 		const parent = input.parentElement;
 		if (!parent) return null;
 
-		const originalPadding = window.getComputedStyle(input).paddingRight;
-		const paddingValue = parseInt(originalPadding) || 0;
-
-		// If there is already padding, it likely means there is an icon (like a password eye).
-		// We place our icon to the left of whatever is already there.
-		const rightOffset = paddingValue > 0 ? paddingValue + 4 : 8;
-		button.style.setProperty('right', `${rightOffset}px`, 'important');
-
-		// Add space for our 28px icon + some margin
-		input.style.setProperty(
-			'padding-right',
-			`${paddingValue + 36}px`,
-			'important',
-		);
-
 		const computedPosition = window.getComputedStyle(parent).position;
 		const needsRelative = computedPosition === 'static';
 		if (needsRelative) {
@@ -142,24 +131,120 @@ export class ButtonInjector {
 
 		parent.appendChild(button);
 
-		const resizeObserver = new ResizeObserver(() => {
-			const rect = input.getBoundingClientRect();
+		let lastAppliedPadding = 0;
+
+		const update = () => {
+			if (!input.isConnected || !button.isConnected) return;
+
+			const inputRect = input.getBoundingClientRect();
+			if (inputRect.width === 0 || inputRect.height === 0) {
+				button.style.display = 'none';
+				return;
+			}
+			button.style.display = 'block';
+
+			const scanBarrier = (
+				container: HTMLElement,
+				referenceRect: DOMRect,
+			): number => {
+				const containerRect = container.getBoundingClientRect();
+				let localBarrier = containerRect.right;
+
+				const children = Array.from(container.children);
+				for (const child of children) {
+					if (
+						child === input ||
+						child === button ||
+						child === parent ||
+						child.contains(input)
+					)
+						continue;
+					if (child.tagName === 'SCRIPT' || child.tagName === 'STYLE') continue;
+
+					const childRect = child.getBoundingClientRect();
+					if (
+						childRect.width === 0 ||
+						childRect.height === 0 ||
+						childRect.width > referenceRect.width * 0.9
+					)
+						continue;
+
+					const verticalOverlap = Math.max(
+						0,
+						Math.min(referenceRect.bottom, childRect.bottom) -
+							Math.max(referenceRect.top, childRect.top),
+					);
+					if (verticalOverlap < childRect.height * 0.2) continue;
+
+					const childCenterX = childRect.left + childRect.width / 2;
+					const containerCenterX = containerRect.left + containerRect.width / 2;
+					if (childCenterX < containerCenterX) continue;
+
+					if (childRect.left < localBarrier) {
+						localBarrier = childRect.left;
+					}
+				}
+				return localBarrier;
+			};
+
+			let barrierX = scanBarrier(parent, inputRect);
+
+			if (parent.parentElement) {
+				const gpBarrier = scanBarrier(parent.parentElement, inputRect);
+				barrierX = Math.min(barrierX, gpBarrier);
+			}
+
 			const parentRect = parent.getBoundingClientRect();
+			const distFromParentRight = parentRect.right - barrierX;
+
+			const rightOffset = Math.max(8, distFromParentRight + 4);
+
 			button.style.setProperty(
 				'top',
-				`${rect.top - parentRect.top + rect.height / 2}px`,
+				`${inputRect.top - parentRect.top + inputRect.height / 2}px`,
 				'important',
 			);
-		});
+			button.style.setProperty('right', `${rightOffset}px`, 'important');
+
+			const buttonLeftGlobal = parentRect.right - rightOffset - 28;
+			const safepoint = buttonLeftGlobal - 4;
+
+			const requiredPadding = Math.max(0, inputRect.right - safepoint);
+
+			const currentComputed =
+				parseFloat(window.getComputedStyle(input).paddingRight) || 0;
+
+			if (currentComputed < requiredPadding - 2) {
+				input.style.setProperty(
+					'padding-right',
+					`${requiredPadding}px`,
+					'important',
+				);
+				lastAppliedPadding = requiredPadding;
+			}
+		};
+
+		update();
+
+		const pollId = setInterval(update, 200);
+
+		const resizeObserver = new ResizeObserver(() => update());
 		resizeObserver.observe(input);
+
+		const mutationObserver = new MutationObserver(() => update());
+		mutationObserver.observe(parent, { childList: true });
 
 		return () => {
 			button.remove();
-			input.style.paddingRight = originalPadding;
+			clearInterval(pollId);
+			resizeObserver.disconnect();
+			mutationObserver.disconnect();
+			if (lastAppliedPadding > 0) {
+				input.style.removeProperty('padding-right');
+			}
 			if (needsRelative) {
 				parent.style.position = computedPosition;
 			}
-			resizeObserver.disconnect();
 		};
 	}
 }
