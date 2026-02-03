@@ -5,6 +5,7 @@ import { AutofillEngine } from './autofill-engine';
 import { browserApi } from '../core/storage/storage-core';
 import { SavePrompt } from './save-prompt';
 import { getBaseDomain } from './domain-utils';
+import { generateSecurePassword } from '../core/crypto/password-utils';
 
 console.log('[Vaulton] Content script initialized');
 
@@ -74,6 +75,33 @@ async function handleButtonClick(
 		return;
 	}
 
+	const handleSelect = (cred: CredentialOption) => {
+		autofillEngine.fillCredentials(
+			form.usernameInput,
+			form.passwordInput,
+			cred.username,
+			cred.password,
+		);
+	};
+
+	const handleGenerate = () => {
+		const target = form.passwordInput || targetInput;
+
+		if (
+			target.readOnly ||
+			target.disabled ||
+			target.getAttribute('readonly') !== null ||
+			target.getAttribute('disabled') !== null
+		) {
+			return;
+		}
+
+		const newPassword = generateSecurePassword(20);
+		target.value = newPassword;
+		target.dispatchEvent(new Event('input', { bubbles: true }));
+		target.dispatchEvent(new Event('change', { bubbles: true }));
+	};
+
 	const handleShowAll = async () => {
 		const allResponse = await fetchAllCredentials();
 		if (allResponse.locked) {
@@ -84,39 +112,31 @@ async function handleButtonClick(
 		credentialPicker.show(
 			allResponse.credentials,
 			targetInput,
-			(cred) => {
-				autofillEngine.fillCredentials(
-					form.usernameInput,
-					form.passwordInput,
-					cred.username,
-					cred.password,
-				);
-			},
+			handleSelect,
+			handleGenerate,
 			undefined,
 			undefined,
+			form.isRegistration,
 		);
 	};
 
 	credentialPicker.show(
 		response.credentials,
 		targetInput,
-		(cred) => {
-			autofillEngine.fillCredentials(
-				form.usernameInput,
-				form.passwordInput,
-				cred.username,
-				cred.password,
-			);
-		},
+		handleSelect,
+		handleGenerate,
 		handleShowAll,
 		domain,
+		form.isRegistration,
 	);
 }
 
 function setupForm(form: LoginForm): void {
-	buttonInjector.injectButton(form.usernameInput, (target) =>
-		handleButtonClick(form, target),
-	);
+	if (form.usernameInput) {
+		buttonInjector.injectButton(form.usernameInput, (target) =>
+			handleButtonClick(form, target),
+		);
+	}
 	if (form.passwordInput) {
 		buttonInjector.injectButton(form.passwordInput, (target) =>
 			handleButtonClick(form, target),
@@ -218,6 +238,8 @@ async function handleFormSubmit(data: FormSubmitData): Promise<void> {
 
 async function initialize(): Promise<void> {
 	console.log('[Vaulton] initialize() called');
+
+	buttonInjector.removeAll();
 
 	const currentUrl = window.location.href;
 	const baseDomain = getBaseDomain(currentUrl);

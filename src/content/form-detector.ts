@@ -1,7 +1,8 @@
 export interface LoginForm {
-	usernameInput: HTMLInputElement;
+	usernameInput: HTMLInputElement | null;
 	passwordInput: HTMLInputElement | null;
 	formElement: HTMLFormElement | null;
+	isRegistration?: boolean;
 }
 
 export interface FormSubmitData {
@@ -28,17 +29,28 @@ export class FormDetector {
 		passwordInputs.forEach((passwordInput) => {
 			if (!passwordInput.offsetParent) return;
 
+			const pid = (passwordInput.id || '').toLowerCase();
+			const pname = (passwordInput.name || '').toLowerCase();
+			if (pid.includes('fake') || pname.includes('fake')) return;
+
 			const usernameInput = this.findUsernameInput(passwordInput);
-			if (!usernameInput) return;
 
 			const formElement = passwordInput.closest('form');
+			const isRegistration = this.scoreRegistrationForm(
+				passwordInput,
+				formElement,
+			);
+
 			this.forms.push({
 				usernameInput,
 				passwordInput,
 				formElement,
+				isRegistration,
 			});
 			this.processedInputs.add(passwordInput);
-			this.processedInputs.add(usernameInput);
+			if (usernameInput) {
+				this.processedInputs.add(usernameInput);
+			}
 		});
 
 		this.detectStandaloneUsernames();
@@ -61,10 +73,13 @@ export class FormDetector {
 
 			if (score >= 70) {
 				const formElement = input.closest('form');
+				const isRegistration = this.scoreRegistrationForm(input, formElement);
+
 				this.forms.push({
 					usernameInput: input,
 					passwordInput: null,
 					formElement,
+					isRegistration,
 				});
 				this.processedInputs.add(input);
 			}
@@ -107,14 +122,12 @@ export class FormDetector {
 				isSubmitting = false;
 			}, 1000);
 
-			const username = form.usernameInput.value;
+			const username = form.usernameInput ? form.usernameInput.value : '';
 			const password = form.passwordInput ? form.passwordInput.value : '';
 
-			if (!username) {
-				return;
-			}
+			const safeUsername = username || 'unknown';
 
-			onSubmit({ username, password, form });
+			onSubmit({ username: safeUsername, password, form });
 		};
 
 		if (form.formElement) {
@@ -139,6 +152,7 @@ export class FormDetector {
 			this.submitListeners.set(form, listener);
 		} else {
 			const anchorInput = form.passwordInput || form.usernameInput;
+			if (!anchorInput) return;
 			let container: HTMLElement | null = anchorInput.closest('div');
 			let searchDepth = 0;
 			const maxDepth = 5;
@@ -186,7 +200,7 @@ export class FormDetector {
 				};
 				form.passwordInput.addEventListener('keydown', handleKeydown);
 				this.submitListeners.set(form, handleKeydown as unknown as () => void);
-			} else {
+			} else if (form.usernameInput) {
 				const handleKeydown = (e: KeyboardEvent) => {
 					if (e.key === 'Enter') {
 						handleSubmit();
@@ -198,7 +212,7 @@ export class FormDetector {
 		}
 
 		if (form.passwordInput) this.processedInputs.add(form.passwordInput);
-		this.processedInputs.add(form.usernameInput);
+		if (form.usernameInput) this.processedInputs.add(form.usernameInput);
 	}
 
 	disconnect(): void {
@@ -232,13 +246,13 @@ export class FormDetector {
 
 		for (const candidate of validCandidates) {
 			const score = this.scoreCandidate(candidate);
-			if (score > maxScore) {
+			if (score >= maxScore) {
 				maxScore = score;
 				bestCandidate = candidate;
 			}
 		}
 
-		if (maxScore < 0) return null;
+		if (maxScore < 1) return null;
 
 		return bestCandidate;
 	}
@@ -268,6 +282,48 @@ export class FormDetector {
 		if (negativeRegex.test(id)) score -= 50;
 		if (negativeRegex.test(placeholder)) score -= 30;
 
+		if (name.includes('fake') || id.includes('fake')) score -= 100;
+
 		return score;
+	}
+
+	private scoreRegistrationForm(
+		input: HTMLInputElement,
+		form: HTMLFormElement | null,
+	): boolean {
+		const autocomplete = (input.autocomplete || '').toLowerCase();
+		if (autocomplete === 'new-password') return true;
+
+		const id = (input.id || '').toLowerCase();
+		const name = (input.name || '').toLowerCase();
+		const ariaLabel = (input.getAttribute('aria-label') || '').toLowerCase();
+		const placeholder = (input.placeholder || '').toLowerCase();
+
+		const regKeywords = ['register', 'signup', 'create', 'new', 'join'];
+		const isMatch = (str: string) => regKeywords.some((kw) => str.includes(kw));
+
+		if (
+			isMatch(id) ||
+			isMatch(name) ||
+			isMatch(ariaLabel) ||
+			isMatch(placeholder)
+		) {
+			return true;
+		}
+
+		if (form) {
+			const pwInputs = form.querySelectorAll('input[type="password"]');
+			if (pwInputs.length >= 2) return true;
+
+			const formId = (form.id || '').toLowerCase();
+			const formName = (form.name || '').toLowerCase();
+			const formAction = (form.getAttribute('action') || '').toLowerCase();
+
+			if (isMatch(formId) || isMatch(formName) || isMatch(formAction)) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 }

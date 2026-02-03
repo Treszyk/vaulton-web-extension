@@ -1,6 +1,6 @@
 export class AutofillEngine {
 	fillCredentials(
-		usernameInput: HTMLInputElement,
+		usernameInput: HTMLInputElement | null,
 		passwordInput: HTMLInputElement | null,
 		username: string,
 		password: string,
@@ -30,6 +30,17 @@ export class AutofillEngine {
 	}
 
 	private fillInput(input: HTMLInputElement, value: string): void {
+		if (
+			input.readOnly ||
+			input.disabled ||
+			input.getAttribute('readonly') !== null ||
+			input.getAttribute('disabled') !== null ||
+			input.matches(':read-only') ||
+			input.matches(':disabled')
+		) {
+			return;
+		}
+
 		const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
 			window.HTMLInputElement.prototype,
 			'value',

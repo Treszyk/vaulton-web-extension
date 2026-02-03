@@ -15,12 +15,21 @@ export class CredentialPicker {
 		credentials: CredentialOption[],
 		targetInput: HTMLInputElement,
 		onSelect: (cred: CredentialOption) => void,
+		onGenerate: () => void,
 		onShowAll?: () => void,
 		domain?: string,
+		isRegistration?: boolean,
 	): void {
 		this.hide();
 
-		const picker = this.createPicker(credentials, onSelect, onShowAll, domain);
+		const picker = this.createPicker(
+			credentials,
+			onSelect,
+			onGenerate,
+			onShowAll,
+			domain,
+			isRegistration,
+		);
 		this.positionPicker(picker, targetInput);
 
 		document.body.appendChild(picker);
@@ -115,8 +124,10 @@ export class CredentialPicker {
 	private createPicker(
 		credentials: CredentialOption[],
 		onSelect: (cred: CredentialOption) => void,
+		onGenerate: () => void,
 		onShowAll?: () => void,
 		domain?: string,
+		isRegistration?: boolean,
 	): HTMLElement {
 		const picker = document.createElement('div');
 		picker.className = 'vaulton-credential-picker';
@@ -129,7 +140,7 @@ export class CredentialPicker {
 			margin: 0 !important;
 			box-sizing: border-box !important;
 			min-width: 0 !important;
-			max-height: 360px !important;
+			max-height: 420px !important;
 			z-index: 999999 !important;
 			box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
 			font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
@@ -149,10 +160,25 @@ export class CredentialPicker {
 			overflow-y: auto;
 			flex: 1;
 			min-height: 0;
-			max-height: 260px !important;
+			max-height: 320px !important;
 		`;
 
-		if (credentials.length === 0) {
+		const genItem = this.createGenerationItem(onGenerate, isRegistration);
+
+		if (isRegistration) {
+			listContainer.appendChild(genItem);
+			if (credentials.length > 0) {
+				const separator = document.createElement('div');
+				separator.style.cssText = `
+					height: 1px;
+					background: #27272a;
+					margin: 8px 12px;
+				`;
+				listContainer.appendChild(separator);
+			}
+		}
+
+		if (credentials.length === 0 && !isRegistration) {
 			listContainer.innerHTML = `
 				<div style="padding: 16px; text-align: center; color: #a1a1aa; font-size: 13px;">
 					No credentials found${domain ? ' for this site' : ''}
@@ -163,6 +189,17 @@ export class CredentialPicker {
 				const item = this.createCredentialItem(cred, onSelect);
 				listContainer.appendChild(item);
 			});
+		}
+
+		if (!isRegistration) {
+			const separator = document.createElement('div');
+			separator.style.cssText = `
+				height: 1px;
+				background: #27272a;
+				margin: 8px 12px;
+			`;
+			listContainer.appendChild(separator);
+			listContainer.appendChild(genItem);
 		}
 
 		picker.appendChild(listContainer);
@@ -256,6 +293,62 @@ export class CredentialPicker {
 		return header;
 	}
 
+	private createGenerationItem(
+		onGenerate: () => void,
+		isRegistration?: boolean,
+	): HTMLElement {
+		const item = document.createElement('div');
+		item.className = 'vaulton-credential-item vaulton-gen-item';
+
+		const bg = isRegistration ? '#7c3aed' : 'transparent';
+		const hoverBg = isRegistration ? '#8b5cf6' : '#27272a';
+		const textColor = 'white';
+		const subColor = isRegistration ? '#ddd6fe' : '#a1a1aa';
+
+		item.style.cssText = `
+			padding: 10px 12px;
+			cursor: pointer;
+			border-radius: 8px;
+			transition: all 0.2s;
+			background: ${bg};
+			display: flex;
+			align-items: center;
+			gap: 10px;
+		`;
+
+		item.innerHTML = `
+			<div style="flex-shrink: 0; color: ${textColor};">
+				<svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+					<path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5z"></path>
+				</svg>
+			</div>
+			<div style="flex: 1;">
+				<div style="color: ${textColor}; font-size: 14px; font-weight: 600;">
+					Generate Secure Password
+				</div>
+				<div style="color: ${subColor}; font-size: 11px;">
+					Created with high entropy
+				</div>
+			</div>
+		`;
+
+		item.addEventListener('mouseenter', () => {
+			item.style.background = hoverBg;
+		});
+
+		item.addEventListener('mouseleave', () => {
+			item.style.background = bg;
+		});
+
+		item.addEventListener('click', (e) => {
+			e.stopPropagation();
+			onGenerate();
+			this.hide();
+		});
+
+		return item;
+	}
+
 	private createCredentialItem(
 		cred: CredentialOption,
 		onSelect: (cred: CredentialOption) => void,
@@ -322,7 +415,7 @@ export class CredentialPicker {
 				`${rect.bottom + window.scrollY + 4}px`,
 				'important',
 			);
-			const potentialHeight = Math.min(360, spaceBelow - 10);
+			const potentialHeight = Math.min(420, spaceBelow - 10);
 			picker.style.setProperty(
 				'max-height',
 				`${potentialHeight}px`,

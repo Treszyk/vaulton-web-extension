@@ -52,6 +52,9 @@ export class ButtonInjector {
 	removeAll(): void {
 		this.buttons.forEach((button) => button.cleanup());
 		this.buttons.clear();
+
+		const zombies = document.querySelectorAll('.vaulton-autofill-btn');
+		zombies.forEach((z) => z.remove());
 	}
 
 	private createButton(onClick: () => void): HTMLElement {
@@ -214,7 +217,7 @@ export class ButtonInjector {
 			const currentComputed =
 				parseFloat(window.getComputedStyle(input).paddingRight) || 0;
 
-			if (currentComputed < requiredPadding - 2) {
+			if (Math.abs(currentComputed - requiredPadding) > 5) {
 				input.style.setProperty(
 					'padding-right',
 					`${requiredPadding}px`,
@@ -226,17 +229,16 @@ export class ButtonInjector {
 
 		update();
 
-		const pollId = setInterval(update, 200);
-
 		const resizeObserver = new ResizeObserver(() => update());
 		resizeObserver.observe(input);
 
+		if (parent) resizeObserver.observe(parent);
+
 		const mutationObserver = new MutationObserver(() => update());
-		mutationObserver.observe(parent, { childList: true });
+		mutationObserver.observe(parent, { childList: true, subtree: false });
 
 		return () => {
 			button.remove();
-			clearInterval(pollId);
 			resizeObserver.disconnect();
 			mutationObserver.disconnect();
 			if (lastAppliedPadding > 0) {

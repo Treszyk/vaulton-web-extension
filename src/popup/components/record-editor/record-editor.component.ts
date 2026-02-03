@@ -12,6 +12,7 @@ import type {
 	VaultRecord,
 	VaultRecordInput,
 } from '../../../core/vault/vault-record.model';
+import { generateSecurePassword } from '../../../core/crypto/password-utils';
 
 @Component({
 	selector: 'app-record-editor',
@@ -73,17 +74,7 @@ export class RecordEditorComponent {
 	}
 
 	generatePassword() {
-		const charset =
-			'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+~';
-		const length = 20;
-		let retVal = '';
-		const array = new Uint32Array(length);
-		crypto.getRandomValues(array);
-		for (let i = 0; i < length; i++) {
-			retVal += charset.charAt(array[i] % charset.length);
-		}
-		this.form.password = retVal;
-		array.fill(0);
+		this.form.password = generateSecurePassword(20);
 		this.showPwd.set(true);
 	}
 
