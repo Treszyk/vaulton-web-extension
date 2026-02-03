@@ -27,6 +27,23 @@ export type BackgroundAction =
 	| {
 			type: 'SAVE_CREDENTIAL';
 			payload: { domain: string; username: string; password: string };
+	  }
+	| {
+			type: 'SET_PENDING_SAVE';
+			payload: {
+				domain: string;
+				username: string;
+				password: string;
+				action: 'save' | 'update';
+			};
+	  }
+	| {
+			type: 'GET_PENDING_SAVE';
+			payload: { domain: string };
+	  }
+	| {
+			type: 'CLEAR_PENDING_SAVE';
+			payload: { domain: string };
 	  };
 
 export interface BackgroundResponse<T = any> {

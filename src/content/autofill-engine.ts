@@ -1,23 +1,30 @@
 export class AutofillEngine {
 	fillCredentials(
 		usernameInput: HTMLInputElement,
-		passwordInput: HTMLInputElement,
+		passwordInput: HTMLInputElement | null,
 		username: string,
 		password: string,
 	): void {
-		this.fillInput(usernameInput, username);
-		this.fillInput(passwordInput, password);
+		if (usernameInput) {
+			this.fillInput(usernameInput, username);
+		}
+		if (passwordInput) {
+			this.fillInput(passwordInput, password);
+		}
 
 		setTimeout(() => {
-			if (passwordInput.form) {
+			if (passwordInput && passwordInput.form) {
 				const submitButton = this.findSubmitButton(passwordInput.form);
 				if (submitButton) {
 					submitButton.focus();
 				} else {
 					passwordInput.focus();
 				}
-			} else {
+			} else if (passwordInput) {
 				passwordInput.focus();
+			} else if (usernameInput) {
+				// Fallback focus if only username exists
+				usernameInput.focus();
 			}
 		}, 100);
 	}

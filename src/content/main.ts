@@ -117,20 +117,40 @@ function setupForm(form: LoginForm): void {
 	buttonInjector.injectButton(form.usernameInput, (target) =>
 		handleButtonClick(form, target),
 	);
-	buttonInjector.injectButton(form.passwordInput, (target) =>
-		handleButtonClick(form, target),
-	);
+	if (form.passwordInput) {
+		buttonInjector.injectButton(form.passwordInput, (target) =>
+			handleButtonClick(form, target),
+		);
+	}
 
 	formDetector.setupSubmitListener(form, handleFormSubmit);
 }
 
 async function handleFormSubmit(data: FormSubmitData): Promise<void> {
+	console.log('[Vaulton] handleFormSubmit triggered');
 	const currentUrl = window.location.href;
 	const baseDomain = getBaseDomain(currentUrl);
 
-	if (!baseDomain) return;
+	if (!baseDomain) {
+		console.warn('[Vaulton] No base domain found for URL:', currentUrl);
+		return;
+	}
 
 	try {
+		console.log(
+			'[Vaulton] Notifying background of pending save for:',
+			baseDomain,
+		);
+		await browserApi.runtime.sendMessage({
+			type: 'SET_PENDING_SAVE',
+			payload: {
+				domain: baseDomain,
+				username: data.username,
+				password: data.password,
+				action: 'save',
+			},
+		});
+
 		const response = await browserApi.runtime.sendMessage({
 			type: 'CHECK_CREDENTIAL_EXISTS',
 			payload: {
@@ -140,46 +160,107 @@ async function handleFormSubmit(data: FormSubmitData): Promise<void> {
 			},
 		});
 
+		console.log('[Vaulton] CHECK_CREDENTIAL_EXISTS response:', response);
+
 		if (response && response.success && response.data) {
 			const { action } = response.data;
 
 			if (action === 'ignore') {
+				console.log(
+					'[Vaulton] Credential already exists, skipping save prompt.',
+				);
+				await browserApi.runtime.sendMessage({
+					type: 'CLEAR_PENDING_SAVE',
+					payload: { domain: baseDomain },
+				});
 				return;
 			}
 
-			savePrompt.show(
-				action === 'save' ? 'save' : 'update',
-				baseDomain,
-				data.username,
-				async (userAction) => {
-					if (userAction === 'never') {
-						return;
-					}
+			if (action === 'update') {
+				await browserApi.runtime.sendMessage({
+					type: 'SET_PENDING_SAVE',
+					payload: {
+						domain: baseDomain,
+						username: data.username,
+						password: data.password,
+						action: 'update',
+					},
+				});
+			}
 
-					if (userAction === 'save' || userAction === 'update') {
-						try {
-							await browserApi.runtime.sendMessage({
-								type: 'SAVE_CREDENTIAL',
-								payload: {
-									domain: baseDomain,
-									username: data.username,
-									password: data.password,
-								},
-							});
-						} catch (e) {
-							console.error('[Vaulton] Failed to save credential:', e);
-						}
+			savePrompt.show(action, baseDomain, data.username, async (userAction) => {
+				console.log('[Vaulton] Save prompt action:', userAction);
+				await browserApi.runtime.sendMessage({
+					type: 'CLEAR_PENDING_SAVE',
+					payload: { domain: baseDomain },
+				});
+
+				if (userAction === 'save' || userAction === 'update') {
+					try {
+						await browserApi.runtime.sendMessage({
+							type: 'SAVE_CREDENTIAL',
+							payload: {
+								domain: baseDomain,
+								username: data.username,
+								password: data.password,
+							},
+						});
+					} catch (e) {
+						console.error('[Vaulton] Failed to save credential:', e);
 					}
-				},
-			);
+				}
+			});
 		}
 	} catch (e) {
 		console.error('[Vaulton] Form submit handler error:', e);
 	}
 }
 
-function initialize(): void {
+async function initialize(): Promise<void> {
 	console.log('[Vaulton] initialize() called');
+
+	const currentUrl = window.location.href;
+	const baseDomain = getBaseDomain(currentUrl);
+	console.log('[Vaulton] Checking pending saves for domain:', baseDomain);
+
+	if (baseDomain) {
+		const pendingResult = await browserApi.runtime.sendMessage({
+			type: 'GET_PENDING_SAVE',
+			payload: { domain: baseDomain },
+		});
+
+		console.log('[Vaulton] GET_PENDING_SAVE response:', pendingResult);
+
+		if (pendingResult && pendingResult.success && pendingResult.data) {
+			const pending = pendingResult.data;
+			console.log('[Vaulton] Recovered pending save:', pending.username);
+			savePrompt.show(
+				pending.action,
+				pending.domain,
+				pending.username,
+				async (userAction) => {
+					await browserApi.runtime.sendMessage({
+						type: 'CLEAR_PENDING_SAVE',
+						payload: { domain: baseDomain },
+					});
+
+					if (userAction === 'save' || userAction === 'update') {
+						await browserApi.runtime.sendMessage({
+							type: 'SAVE_CREDENTIAL',
+							payload: {
+								domain: pending.domain,
+								username: pending.username,
+								password: pending.password,
+							},
+						});
+					}
+				},
+			);
+		} else {
+			console.log('[Vaulton] No pending saves found.');
+		}
+	}
+
 	const forms = formDetector.detectForms();
 	console.log('[Vaulton] About to setup', forms.length, 'forms');
 

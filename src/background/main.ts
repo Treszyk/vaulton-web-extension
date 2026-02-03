@@ -92,6 +92,17 @@ async function handleAction(action: BackgroundAction): Promise<any> {
 				action.payload.username,
 				action.payload.password,
 			);
+		case 'SET_PENDING_SAVE':
+			return auth.setPendingSavePrompt(action.payload.domain, {
+				domain: action.payload.domain,
+				username: action.payload.username,
+				password: action.payload.password,
+				action: action.payload.action,
+			});
+		case 'GET_PENDING_SAVE':
+			return auth.getPendingSavePrompt(action.payload.domain);
+		case 'CLEAR_PENDING_SAVE':
+			return auth.clearPendingSavePrompt(action.payload.domain);
 		default:
 			throw new Error(`Unknown action: ${(action as any).type}`);
 	}
@@ -101,9 +112,7 @@ async function getCredentialsForDomain(
 	domain: string,
 ): Promise<{ credentials: any[]; locked: boolean }> {
 	try {
-		const sessionKeyB64 =
-			await browserApi.storage.session.get('VaultSessionKey');
-		if (!sessionKeyB64.VaultSessionKey) {
+		if (await auth.isLocked()) {
 			return { credentials: [], locked: true };
 		}
 
@@ -143,6 +152,10 @@ async function checkCredentialExists(
 	password: string,
 ): Promise<{ action: 'save' | 'update' | 'ignore'; recordId?: string }> {
 	try {
+		if (await auth.isLocked()) {
+			return { action: 'ignore' };
+		}
+
 		const vault = await auth.getDecryptedVault();
 		if (!vault || vault.length === 0) {
 			return { action: 'save' };

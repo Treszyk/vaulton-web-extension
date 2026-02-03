@@ -78,7 +78,6 @@ export class BackgroundAuthManager {
 				}
 			}
 
-			// Encrypt for local cache storage using ephemeral session key
 			const sessionKey = await this.ensureSessionKey();
 			const encryptedCache = await encryptVaultCache(
 				sessionKey,
@@ -126,7 +125,6 @@ export class BackgroundAuthManager {
 
 			const data = await response.json();
 
-			// Save session tokens immediately
 			await this.saveSession(
 				data.AccessToken,
 				data.RefreshToken,
@@ -137,7 +135,7 @@ export class BackgroundAuthManager {
 			return {
 				success: true,
 				MkWrapPwd: data.MkWrapPwd,
-				CryptoSchemaVer: data.CryptoSchemaVer || 1, // Default if missing
+				CryptoSchemaVer: data.CryptoSchemaVer || 1,
 				AccountId: accountId,
 			};
 		} catch (e: any) {
@@ -272,6 +270,7 @@ export class BackgroundAuthManager {
 			'TagKeyB64',
 			'VaultSessionKey',
 			'EncryptedVault',
+			'PendingSavePrompts',
 		];
 		console.log('[Background] Clearing session keys and tokens...');
 		await StorageCore.removeMultiple(keys, 'session');
@@ -288,6 +287,11 @@ export class BackgroundAuthManager {
 			chrome.alarms.create('auto-lock', { delayInMinutes: minutes });
 			console.log(`[Background] Auto-lock timer reset: ${minutes} minutes`);
 		}
+	}
+
+	public async isLocked(): Promise<boolean> {
+		const sessionKey = await StorageCore.get('VaultSessionKey', 'session');
+		return !sessionKey;
 	}
 
 	public async getDecryptedVault(): Promise<any[]> {
@@ -464,6 +468,54 @@ export class BackgroundAuthManager {
 		}
 
 		await this.encryptAndSaveVault(vault);
+	}
+
+	public async setPendingSavePrompt(domain: string, data: any): Promise<void> {
+		if (await this.isLocked()) return;
+		console.log('[Background] setPendingSavePrompt for:', domain);
+		const sessionKeyB64 = await StorageCore.get('VaultSessionKey', 'session');
+		if (!sessionKeyB64) {
+			console.warn('[Background] Cannot set pending: No session key');
+			return;
+		}
+
+		const sessionKey = await importSessionKey(sessionKeyB64);
+		const encrypted = await encryptVaultCache(sessionKey, JSON.stringify(data));
+
+		const allPending =
+			(await StorageCore.get('PendingSavePrompts', 'local')) || {};
+		allPending[domain.toLowerCase()] = encrypted;
+
+		await StorageCore.set('PendingSavePrompts', allPending, 'local');
+	}
+
+	public async getPendingSavePrompt(domain: string): Promise<any | null> {
+		const allPending = await StorageCore.get('PendingSavePrompts', 'local');
+		if (!allPending || !allPending[domain.toLowerCase()]) {
+			return null;
+		}
+
+		console.log('[Background] getPendingSavePrompt found data for:', domain);
+		const encrypted = allPending[domain.toLowerCase()];
+		const sessionKeyB64 = await StorageCore.get('VaultSessionKey', 'session');
+		if (!sessionKeyB64) return null;
+
+		try {
+			const sessionKey = await importSessionKey(sessionKeyB64);
+			const decrypted = await decryptVaultCache(sessionKey, encrypted);
+			return JSON.parse(decrypted);
+		} catch (e) {
+			console.error('[Background] Failed to decrypt pending prompt:', e);
+			return null;
+		}
+	}
+
+	public async clearPendingSavePrompt(domain: string): Promise<void> {
+		const allPending = await StorageCore.get('PendingSavePrompts', 'local');
+		if (allPending && allPending[domain.toLowerCase()]) {
+			delete allPending[domain.toLowerCase()];
+			await StorageCore.set('PendingSavePrompts', allPending, 'local');
+		}
 	}
 
 	private async encryptAndSaveVault(vault: any[]): Promise<void> {

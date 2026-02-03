@@ -27,14 +27,16 @@ export class CredentialPicker {
 		this.element = picker;
 
 		const handleOutsideClick = (e: MouseEvent) => {
-			if (!picker.contains(e.target as Node)) {
+			if (!e.composedPath().includes(picker)) {
 				this.hide();
-				document.removeEventListener('click', handleOutsideClick);
+				window.removeEventListener('click', handleOutsideClick, {
+					capture: true,
+				});
 			}
 		};
 
 		setTimeout(() => {
-			document.addEventListener('click', handleOutsideClick);
+			window.addEventListener('click', handleOutsideClick, { capture: true });
 		}, 100);
 	}
 
@@ -97,14 +99,16 @@ export class CredentialPicker {
 		this.element = picker;
 
 		const handleOutsideClick = (e: MouseEvent) => {
-			if (!picker.contains(e.target as Node)) {
+			if (!e.composedPath().includes(picker)) {
 				this.hide();
-				document.removeEventListener('click', handleOutsideClick);
+				window.removeEventListener('click', handleOutsideClick, {
+					capture: true,
+				});
 			}
 		};
 
 		setTimeout(() => {
-			document.addEventListener('click', handleOutsideClick);
+			window.addEventListener('click', handleOutsideClick, { capture: true });
 		}, 100);
 	}
 

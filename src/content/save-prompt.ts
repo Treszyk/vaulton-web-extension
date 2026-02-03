@@ -1,6 +1,6 @@
 import { resetAutoLockTimer } from './activity-tracker';
 
-export type SaveAction = 'save' | 'update' | 'never';
+export type SaveAction = 'save' | 'update' | 'never' | 'not-now';
 
 export class SavePrompt {
 	private element: HTMLElement | null = null;
@@ -57,33 +57,34 @@ export class SavePrompt {
 					transition: background 0.2s;
 				">${action === 'save' ? 'Save' : 'Update'}</button>
 				<div style="display: flex; gap: 8px;">
-					<button class="vaulton-never-btn" style="
-						flex: 1;
-						background: #27272a;
-						color: #a1a1aa;
-						border: none;
-						border-radius: 6px;
-						padding: 6px 12px;
-						font-size: 12px;
-						cursor: pointer;
-						transition: background 0.2s;
-					">Never for this site</button>
 					<button class="vaulton-not-now-btn" style="
 						flex: 1;
-						background: transparent;
-						color: #71717a;
-						border: 1px solid #27272a;
+						background: #27272a;
+						color: #e4e4e7;
+						border: 1px solid #3f3f46;
 						border-radius: 6px;
 						padding: 6px 12px;
 						font-size: 12px;
+						font-weight: 500;
 						cursor: pointer;
 						transition: all 0.2s;
 					">Not now</button>
+					<button class="vaulton-never-btn" style="
+						flex: 1;
+						background: #7f1d1d;
+						color: #ffffff;
+						border: 1px solid #991b1b;
+						border-radius: 6px;
+						padding: 6px 12px;
+						font-size: 12px;
+						font-weight: 500;
+						cursor: pointer;
+						transition: all 0.2s;
+					">Never for this site</button>
 				</div>
 			</div>
 		`;
 
-		// Add animation keyframes
 		const style = document.createElement('style');
 		style.textContent = `
 			@keyframes vaultonSlideIn {
@@ -113,19 +114,21 @@ export class SavePrompt {
 		});
 
 		neverBtn.addEventListener('mouseenter', () => {
-			neverBtn.style.background = '#3f3f46';
+			neverBtn.style.background = '#b91c1c';
+			neverBtn.style.borderColor = '#dc2626';
 		});
 		neverBtn.addEventListener('mouseleave', () => {
-			neverBtn.style.background = '#27272a';
+			neverBtn.style.background = '#7f1d1d';
+			neverBtn.style.borderColor = '#991b1b';
 		});
 
 		notNowBtn.addEventListener('mouseenter', () => {
-			notNowBtn.style.background = '#27272a';
-			notNowBtn.style.borderColor = '#3f3f46';
+			notNowBtn.style.background = '#3f3f46';
+			notNowBtn.style.color = '#ffffff';
 		});
 		notNowBtn.addEventListener('mouseleave', () => {
-			notNowBtn.style.background = 'transparent';
-			notNowBtn.style.borderColor = '#27272a';
+			notNowBtn.style.background = '#27272a';
+			notNowBtn.style.color = '#e4e4e7';
 		});
 
 		saveBtn.addEventListener('click', () => {
@@ -141,6 +144,7 @@ export class SavePrompt {
 		});
 
 		notNowBtn.addEventListener('click', () => {
+			onAction('not-now');
 			this.hide();
 		});
 

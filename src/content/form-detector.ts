@@ -1,6 +1,6 @@
 export interface LoginForm {
 	usernameInput: HTMLInputElement;
-	passwordInput: HTMLInputElement;
+	passwordInput: HTMLInputElement | null;
 	formElement: HTMLFormElement | null;
 }
 
@@ -37,9 +37,38 @@ export class FormDetector {
 				passwordInput,
 				formElement,
 			});
+			this.processedInputs.add(passwordInput);
+			this.processedInputs.add(usernameInput);
 		});
 
+		this.detectStandaloneUsernames();
+
 		return this.forms;
+	}
+
+	private detectStandaloneUsernames(): void {
+		const candidates = Array.from(
+			document.querySelectorAll<HTMLInputElement>(
+				'input[type="text"], input[type="email"], input:not([type])',
+			),
+		);
+
+		candidates.forEach((input) => {
+			if (this.processedInputs.has(input)) return;
+			if (!input.offsetParent) return;
+
+			const score = this.scoreCandidate(input);
+
+			if (score >= 70) {
+				const formElement = input.closest('form');
+				this.forms.push({
+					usernameInput: input,
+					passwordInput: null,
+					formElement,
+				});
+				this.processedInputs.add(input);
+			}
+		});
 	}
 
 	observeForms(callback: (forms: LoginForm[]) => void): void {
@@ -49,9 +78,9 @@ export class FormDetector {
 
 		this.observer = new MutationObserver(() => {
 			const allForms = this.detectForms();
-			const newForms = allForms.filter(
-				(form) => !this.processedInputs.has(form.passwordInput),
-			);
+			const newForms = allForms.filter((form) => {
+				return !this.submitListeners.has(form);
+			});
 
 			if (newForms.length > 0) {
 				callback(newForms);
@@ -68,23 +97,24 @@ export class FormDetector {
 		form: LoginForm,
 		onSubmit: (data: FormSubmitData) => void,
 	): void {
-		console.log(
-			'[Vaulton] setupSubmitListener called, has Form:',
-			this.submitListeners.has(form),
-		);
 		if (this.submitListeners.has(form)) return;
 
+		let isSubmitting = false;
 		const handleSubmit = () => {
-			const username = form.usernameInput.value;
-			const password = form.passwordInput.value;
+			if (isSubmitting) return;
+			isSubmitting = true;
+			setTimeout(() => {
+				isSubmitting = false;
+			}, 1000);
 
-			if (!username || !password) {
+			const username = form.usernameInput.value;
+			const password = form.passwordInput ? form.passwordInput.value : '';
+
+			if (!username) {
 				return;
 			}
 
-			setTimeout(() => {
-				onSubmit({ username, password, form });
-			}, 500);
+			onSubmit({ username, password, form });
 		};
 
 		if (form.formElement) {
@@ -108,7 +138,8 @@ export class FormDetector {
 
 			this.submitListeners.set(form, listener);
 		} else {
-			let container: HTMLElement | null = form.passwordInput.closest('div');
+			const anchorInput = form.passwordInput || form.usernameInput;
+			let container: HTMLElement | null = anchorInput.closest('div');
 			let searchDepth = 0;
 			const maxDepth = 5;
 			let buttonsFound = 0;
@@ -137,16 +168,7 @@ export class FormDetector {
 			}
 
 			if (buttonsFound === 0) {
-				console.log(
-					'[Vaulton] Fallback: searching entire document for submit buttons',
-				);
 				const docButtons = document.querySelectorAll('button[type="submit"]');
-				console.log(
-					'[Vaulton] Found',
-					docButtons.length,
-					'submit buttons in document',
-				);
-
 				docButtons.forEach((btn) => {
 					const buttonEl = btn as HTMLButtonElement;
 					const buttonListener = () => {
@@ -156,16 +178,26 @@ export class FormDetector {
 				});
 			}
 
-			const handleKeydown = (e: KeyboardEvent) => {
-				if (e.key === 'Enter') {
-					handleSubmit();
-				}
-			};
-			form.passwordInput.addEventListener('keydown', handleKeydown);
-			this.submitListeners.set(form, handleKeydown as unknown as () => void);
+			if (form.passwordInput) {
+				const handleKeydown = (e: KeyboardEvent) => {
+					if (e.key === 'Enter') {
+						handleSubmit();
+					}
+				};
+				form.passwordInput.addEventListener('keydown', handleKeydown);
+				this.submitListeners.set(form, handleKeydown as unknown as () => void);
+			} else {
+				const handleKeydown = (e: KeyboardEvent) => {
+					if (e.key === 'Enter') {
+						handleSubmit();
+					}
+				};
+				form.usernameInput.addEventListener('keydown', handleKeydown);
+				this.submitListeners.set(form, handleKeydown as unknown as () => void);
+			}
 		}
 
-		this.processedInputs.add(form.passwordInput);
+		if (form.passwordInput) this.processedInputs.add(form.passwordInput);
 		this.processedInputs.add(form.usernameInput);
 	}
 
@@ -188,19 +220,54 @@ export class FormDetector {
 			),
 		);
 
-		for (let i = 0; i < candidates.length; i++) {
-			const candidate = candidates[i];
-			if (!candidate.offsetParent) continue;
+		const validCandidates = candidates.filter(
+			(c) =>
+				c.offsetParent !== null &&
+				c.compareDocumentPosition(passwordInput) &
+					Node.DOCUMENT_POSITION_FOLLOWING,
+		);
 
-			const isBeforePassword =
-				candidate.compareDocumentPosition(passwordInput) &
-				Node.DOCUMENT_POSITION_FOLLOWING;
+		let bestCandidate: HTMLInputElement | null = null;
+		let maxScore = -1;
 
-			if (isBeforePassword) {
-				return candidate;
+		for (const candidate of validCandidates) {
+			const score = this.scoreCandidate(candidate);
+			if (score > maxScore) {
+				maxScore = score;
+				bestCandidate = candidate;
 			}
 		}
 
-		return candidates.find((c) => c.offsetParent !== null) || null;
+		if (maxScore < 0) return null;
+
+		return bestCandidate;
+	}
+
+	private scoreCandidate(input: HTMLInputElement): number {
+		let score = 0;
+		const name = (input.name || '').toLowerCase();
+		const id = (input.id || '').toLowerCase();
+		const autocomplete = (input.autocomplete || '').toLowerCase();
+		const type = (input.type || '').toLowerCase();
+		const placeholder = (input.placeholder || '').toLowerCase();
+
+		if (autocomplete === 'username' || autocomplete === 'email') return 100;
+
+		if (type === 'email') score += 20;
+
+		const positiveRegex =
+			/^(user|login|email|account|id|u|phone|mobile)$|.*(user|login|email|account).*/;
+		if (positiveRegex.test(name)) score += 15;
+		if (positiveRegex.test(id)) score += 15;
+		if (positiveRegex.test(placeholder)) score += 10;
+
+		const negativeRegex =
+			/search|query|title|subject|date|year|age|captcha|otp|code|promo|coupon|subscribe/;
+
+		if (negativeRegex.test(name)) score -= 50;
+		if (negativeRegex.test(id)) score -= 50;
+		if (negativeRegex.test(placeholder)) score -= 30;
+
+		return score;
 	}
 }
