@@ -15,7 +15,6 @@ export class VaultCryptoService {
 
 	async encryptEntry(
 		entry: PlainEntry,
-		domain: string,
 		aadStr: string,
 	): Promise<EncryptedEntryResult> {
 		const json = JSON.stringify(entry);
@@ -23,7 +22,7 @@ export class VaultCryptoService {
 
 		const ptBytes = new TextEncoder().encode(json);
 		try {
-			return await this.authCrypto.encryptEntry(ptBytes.buffer, aadB64, domain);
+			return await this.authCrypto.encryptEntry(ptBytes.buffer, aadB64);
 		} finally {
 			try {
 				ptBytes.fill(0);

@@ -75,7 +75,7 @@ export class SessionService {
 			throw new Error(startRes.error || 'Login start failed');
 		}
 
-		const { vaultKeyB64, tagKeyB64 } = await this.crypto.finalizeLogin(
+		const { vaultKeyB64 } = await this.crypto.finalizeLogin(
 			startRes.data.MkWrapPwd,
 			startRes.data.CryptoSchemaVer,
 			startRes.data.AccountId,
@@ -85,7 +85,6 @@ export class SessionService {
 			type: 'LOGIN_COMPLETE',
 			payload: {
 				vaultKeyB64,
-				tagKeyB64,
 			},
 		});
 
@@ -118,7 +117,6 @@ export class SessionService {
 				'RefreshToken',
 				'RefreshExpiresAt',
 				'VaultKeyB64',
-				'TagKeyB64',
 			];
 			const data = await this.storage.getMultiple(keys, oldArea);
 			await this.storage.setMultiple(data, newArea);

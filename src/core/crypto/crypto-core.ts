@@ -1,7 +1,7 @@
 import { bytesToB64, b64ToBytes } from './b64';
 import { zeroize } from './zeroize';
 import { encryptSplit } from './aesgcm-split';
-import { hkdfAesGcm256Key, hkdfHmacSha256Key, hkdfVerifierB64 } from './hkdf';
+import { hkdfAesGcm256Key, hkdfVerifierB64 } from './hkdf';
 import { EncryptedValueDto } from './worker/crypto.worker.types';
 import { KdfProvider } from './kdf/kdf';
 
@@ -32,9 +32,7 @@ export async function deriveVaultKeys(
 	AccountId: string,
 ): Promise<{
 	vaultKey: CryptoKey;
-	domainTagKey: CryptoKey;
 	vaultKeyB64: string;
-	tagKeyB64: string;
 }> {
 	const aadString = `vaulton:mk-wrap-pwd:schema${CryptoSchemaVer}:${AccountId}`;
 	const aad = new TextEncoder().encode(aadString);
@@ -52,16 +50,12 @@ export async function deriveVaultKeys(
 			['encrypt', 'decrypt'],
 			true,
 		);
-		const domainTagKey = await hkdfHmacSha256Key(mk, 'vaulton/vault-tag', true);
 
 		const vaultKeyRaw = await crypto.subtle.exportKey('raw', vaultKey);
-		const tagKeyRaw = await crypto.subtle.exportKey('raw', domainTagKey);
 
 		return {
 			vaultKey,
-			domainTagKey,
 			vaultKeyB64: bytesToB64(new Uint8Array(vaultKeyRaw)),
-			tagKeyB64: bytesToB64(new Uint8Array(tagKeyRaw)),
 		};
 	} finally {
 		zeroize(aad);
@@ -70,40 +64,17 @@ export async function deriveVaultKeys(
 
 export async function encryptVaultEntry(
 	vaultKey: CryptoKey,
-	domainTagKey: CryptoKey,
 	plaintextBuffer: ArrayBuffer,
 	aadB64: string,
-	domain?: string,
-): Promise<{ DomainTag: string; Payload: EncryptedValueDto }> {
+): Promise<{ Payload: EncryptedValueDto }> {
 	const ptBytes = new Uint8Array(plaintextBuffer);
 	const aad = b64ToBytes(aadB64);
 
 	try {
 		const split = await encryptSplit(vaultKey, ptBytes, aad);
 
-		const domainInput = domain ?? '';
-		const domainBytes = new TextEncoder().encode(domainInput);
-		let domainTag = '';
-
-		try {
-			const hmacBuf = await crypto.subtle.sign(
-				{ name: 'HMAC' },
-				domainTagKey,
-				domainBytes,
-			);
-			const hmacBytes = new Uint8Array(hmacBuf);
-			try {
-				domainTag = bytesToB64(hmacBytes);
-			} finally {
-				zeroize(hmacBytes);
-			}
-		} finally {
-			zeroize(domainBytes);
-		}
-
 		try {
 			return {
-				DomainTag: domainTag,
 				Payload: {
 					Nonce: bytesToB64(split.Nonce),
 					CipherText: bytesToB64(split.CipherText),
@@ -232,14 +203,11 @@ export async function decryptMk(
 
 export async function importVaultKeys(
 	vaultKeyB64: string,
-	tagKeyB64: string,
-): Promise<{ vaultKey: CryptoKey; domainTagKey: CryptoKey }> {
+): Promise<{ vaultKey: CryptoKey }> {
 	let vaultKeyRaw: Uint8Array | null = null;
-	let tagKeyRaw: Uint8Array | null = null;
 
 	try {
 		vaultKeyRaw = b64ToBytes(vaultKeyB64);
-		tagKeyRaw = b64ToBytes(tagKeyB64);
 
 		const vaultKey = await crypto.subtle.importKey(
 			'raw',
@@ -249,21 +217,10 @@ export async function importVaultKeys(
 			['encrypt', 'decrypt'],
 		);
 
-		const domainTagKey = await crypto.subtle.importKey(
-			'raw',
-			tagKeyRaw as BufferSource,
-			{ name: 'HMAC', hash: 'SHA-256', length: 256 },
-			true,
-			['sign'],
-		);
-
-		return { vaultKey, domainTagKey };
+		return { vaultKey };
 	} finally {
 		try {
 			if (vaultKeyRaw) zeroize(vaultKeyRaw);
-		} catch {}
-		try {
-			if (tagKeyRaw) zeroize(tagKeyRaw);
 		} catch {}
 	}
 }

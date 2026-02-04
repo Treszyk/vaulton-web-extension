@@ -11,7 +11,6 @@ export interface EncryptedValue {
 
 export interface EntryDto {
 	Id: string;
-	DomainTag: string;
 	Payload: EncryptedValue;
 }
 
@@ -21,12 +20,10 @@ export interface PreCreateEntryResponse {
 
 export interface CreateVaultEntryRequest {
 	EntryId: string;
-	DomainTag: string;
 	Payload: EncryptedValue;
 }
 
 export interface UpdateVaultEntryRequest {
-	DomainTag: string;
 	Payload: EncryptedValue;
 }
 
@@ -56,7 +53,6 @@ export class VaultApiService {
 				map((entries) =>
 					entries.map((e) => ({
 						Id: e.Id ?? e.id,
-						DomainTag: e.DomainTag ?? e.domainTag,
 						Payload: this.normalizeEnc(e.Payload ?? e.payload),
 					})),
 				),

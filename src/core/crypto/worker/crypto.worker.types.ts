@@ -41,7 +41,6 @@ export type WorkerRequest =
 			payload: {
 				plaintextBuffer: ArrayBuffer;
 				aadB64: string;
-				domain?: string;
 			};
 	  }
 	| {
@@ -70,18 +69,9 @@ export type WorkerRequest =
 			};
 	  }
 	| {
-			type: 'BENCHMARK_KDF';
-			payload: {
-				passwordBuffer: ArrayBuffer;
-				saltBuffer: ArrayBuffer;
-				kdfMode: number;
-			};
-	  }
-	| {
 			type: 'IMPORT_KEYS';
 			payload: {
 				vaultKeyB64: string;
-				tagKeyB64: string;
 			};
 	  }
 	| {
@@ -106,7 +96,6 @@ export interface WorkerMessage<T> {
 }
 
 export interface EncryptedEntryResult {
-	DomainTag: string;
 	Payload: EncryptedValueDto;
 }
 

@@ -10,7 +10,6 @@ export type BackgroundAction =
 			type: 'LOGIN_COMPLETE';
 			payload: {
 				vaultKeyB64: string;
-				tagKeyB64: string;
 			};
 	  }
 	| { type: 'LOGOUT' }

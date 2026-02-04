@@ -20,7 +20,6 @@ import type { KdfProvider } from '../kdf/kdf';
 
 const kdfProvider: KdfProvider = new Argon2KdfProvider();
 let vaultKey: CryptoKey | null = null;
-let domainTagKey: CryptoKey | null = null;
 let pendingLoginBaseKey: CryptoKey | null = null;
 
 addEventListener(
@@ -59,18 +58,15 @@ addEventListener(
 						AccountId,
 					);
 					vaultKey = res.vaultKey;
-					domainTagKey = res.domainTagKey;
 					pendingLoginBaseKey = null;
 					postSuccess(id, {
 						ok: true,
 						vaultKeyB64: res.vaultKeyB64,
-						tagKeyB64: res.tagKeyB64,
 					});
 					break;
 				}
 				case 'CLEAR_KEYS': {
 					vaultKey = null;
-					domainTagKey = null;
 					pendingLoginBaseKey = null;
 					postSuccess(id, { ok: true });
 					break;
@@ -103,7 +99,6 @@ addEventListener(
 							AccountId,
 						);
 						vaultKey = res.vaultKey;
-						domainTagKey = res.domainTagKey;
 						postSuccess(id, { ok: true, vaultKeyB64: res.vaultKeyB64 });
 					} finally {
 						zeroize(pwdBytes);
@@ -111,14 +106,12 @@ addEventListener(
 					break;
 				}
 				case 'ENCRYPT_ENTRY': {
-					if (!vaultKey || !domainTagKey) throw new Error('Vault locked');
-					const { plaintextBuffer, aadB64, domain } = request.payload;
+					if (!vaultKey) throw new Error('Vault locked');
+					const { plaintextBuffer, aadB64 } = request.payload;
 					const result = await encryptVaultEntry(
 						vaultKey,
-						domainTagKey,
 						plaintextBuffer,
 						aadB64,
-						domain,
 					);
 					postSuccess(id, result);
 					break;
@@ -130,28 +123,11 @@ addEventListener(
 					postSuccess(id, { ptBuffer: ptBuf }, [ptBuf]);
 					break;
 				}
-				case 'BENCHMARK_KDF': {
-					const { passwordBuffer, saltBuffer, kdfMode } = request.payload;
-					const pwdBytes = new Uint8Array(passwordBuffer);
-					const saltBytes = new Uint8Array(saltBuffer);
-					try {
-						const duration = await kdfProvider.benchmark(
-							pwdBytes,
-							saltBytes,
-							kdfMode,
-						);
-						postSuccess(id, { duration });
-					} finally {
-						zeroize(pwdBytes);
-						zeroize(saltBytes);
-					}
-					break;
-				}
+
 				case 'IMPORT_KEYS': {
-					const { vaultKeyB64, tagKeyB64 } = request.payload;
-					const keys = await importVaultKeys(vaultKeyB64, tagKeyB64);
+					const { vaultKeyB64 } = request.payload;
+					const keys = await importVaultKeys(vaultKeyB64);
 					vaultKey = keys.vaultKey;
-					domainTagKey = keys.domainTagKey;
 					postSuccess(id, { ok: true });
 					break;
 				}

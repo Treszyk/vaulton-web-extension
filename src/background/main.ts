@@ -62,10 +62,7 @@ async function handleAction(action: BackgroundAction): Promise<any> {
 		case 'LOGIN_START':
 			return auth.startLogin(action.payload.accountId, action.payload.verifier);
 		case 'LOGIN_COMPLETE':
-			return auth.completeLogin(
-				action.payload.vaultKeyB64,
-				action.payload.tagKeyB64,
-			);
+			return auth.completeLogin(action.payload.vaultKeyB64);
 		case 'LOGOUT':
 			return auth.logout();
 		case 'REFRESH':

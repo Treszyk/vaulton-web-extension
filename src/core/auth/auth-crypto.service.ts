@@ -57,10 +57,7 @@ export class AuthCryptoService {
 			};
 
 			const area = await StorageCore.detectArea();
-			const storedKeys = await this.storage.getMultiple(
-				['VaultKeyB64', 'TagKeyB64'],
-				area,
-			);
+			const storedKeys = await this.storage.getMultiple(['VaultKeyB64'], area);
 
 			if (storedKeys['VaultKeyB64']) {
 				const id = 'HYDRATE_' + crypto.randomUUID();
@@ -88,7 +85,6 @@ export class AuthCryptoService {
 						type: 'IMPORT_KEYS',
 						payload: {
 							vaultKeyB64: storedKeys['VaultKeyB64'],
-							tagKeyB64: storedKeys['TagKeyB64'],
 						},
 					},
 				});
@@ -157,10 +153,9 @@ export class AuthCryptoService {
 		mkWrapPwd: EncryptedValueDto,
 		schemaVer: number,
 		accountId: string,
-	): Promise<{ vaultKeyB64: string; tagKeyB64: string }> {
+	): Promise<{ vaultKeyB64: string }> {
 		const res = await this.postToWorker<{
 			vaultKeyB64: string;
-			tagKeyB64: string;
 		}>('FINALIZE_LOGIN', {
 			MkWrapPwd: mkWrapPwd,
 			CryptoSchemaVer: schemaVer,
@@ -230,7 +225,7 @@ export class AuthCryptoService {
 	async clearKeys(): Promise<void> {
 		try {
 			await this.storage.removeMultiple(
-				['VaultKeyB64', 'TagKeyB64', 'VaultSessionKey'],
+				['VaultKeyB64', 'VaultSessionKey'],
 				'session',
 			);
 			await this.postToWorker('CLEAR_KEYS', {});
@@ -240,14 +235,12 @@ export class AuthCryptoService {
 	async encryptEntry(
 		plaintextBuffer: ArrayBuffer,
 		aadB64: string,
-		domain?: string,
 	): Promise<EncryptedEntryResult> {
 		return this.postToWorker<EncryptedEntryResult>(
 			'ENCRYPT_ENTRY',
 			{
 				plaintextBuffer,
 				aadB64,
-				domain,
 			},
 			[plaintextBuffer],
 		);

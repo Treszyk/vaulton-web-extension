@@ -34,12 +34,9 @@ export class BackgroundAuthManager {
 		const { AccessToken } = await StorageCore.getSmartMultiple(['AccessToken']);
 		if (!AccessToken) return false;
 
-		const keys = await StorageCore.getSmartMultiple([
-			'VaultKeyB64',
-			'TagKeyB64',
-		]);
+		const keys = await StorageCore.getSmartMultiple(['VaultKeyB64']);
 
-		if (!keys.VaultKeyB64 || !keys.TagKeyB64) return false;
+		if (!keys.VaultKeyB64) return false;
 
 		try {
 			const response = await fetch(`${API_BASE_URL}/vault/entries`, {
@@ -57,10 +54,7 @@ export class BackgroundAuthManager {
 			if (!response.ok) return false;
 
 			const encryptedEntries = await response.json();
-			const { vaultKey } = await importVaultKeys(
-				keys.VaultKeyB64,
-				keys.TagKeyB64,
-			);
+			const { vaultKey } = await importVaultKeys(keys.VaultKeyB64);
 
 			const decryptedEntries: any[] = [];
 			for (const entry of encryptedEntries) {
@@ -144,14 +138,10 @@ export class BackgroundAuthManager {
 		}
 	}
 
-	async completeLogin(
-		vaultKeyB64: string,
-		tagKeyB64: string,
-	): Promise<boolean> {
+	async completeLogin(vaultKeyB64: string): Promise<boolean> {
 		try {
 			await StorageCore.setSmartMultiple({
 				VaultKeyB64: vaultKeyB64,
-				TagKeyB64: tagKeyB64,
 			});
 			return true;
 		} catch (e) {
@@ -267,7 +257,6 @@ export class BackgroundAuthManager {
 			'RefreshToken',
 			'RefreshExpiresAt',
 			'VaultKeyB64',
-			'TagKeyB64',
 			'VaultSessionKey',
 			'EncryptedVault',
 			'PendingSavePrompts',
@@ -311,41 +300,6 @@ export class BackgroundAuthManager {
 		}
 	}
 
-	public async saveVaultRecord(record: {
-		domain: string;
-		username: string;
-		password: string;
-	}): Promise<void> {
-		const vault = await this.getDecryptedVault();
-		if (!vault) {
-			throw new Error('Vault is not available');
-		}
-
-		const baseDomain = record.domain.toLowerCase().replace(/^www\./, '');
-
-		const existingIndex = vault.findIndex(
-			(r: any) => r.website === baseDomain && r.username === record.username,
-		);
-
-		if (existingIndex >= 0) {
-			vault[existingIndex].password = record.password;
-			vault[existingIndex].lastModified = Date.now();
-		} else {
-			vault.push({
-				id: crypto.randomUUID(),
-				title: baseDomain,
-				username: record.username,
-				password: record.password,
-				website: baseDomain,
-				notes: '',
-				createdAt: Date.now(),
-				lastModified: Date.now(),
-			});
-		}
-
-		await this.encryptAndSaveVault(vault);
-	}
-
 	public async saveAndUploadCredential(
 		domain: string,
 		username: string,
@@ -354,11 +308,8 @@ export class BackgroundAuthManager {
 		const { AccessToken } = await StorageCore.getSmartMultiple(['AccessToken']);
 		if (!AccessToken) throw new Error('Not authenticated');
 
-		const keys = await StorageCore.getSmartMultiple([
-			'VaultKeyB64',
-			'TagKeyB64',
-		]);
-		if (!keys.VaultKeyB64 || !keys.TagKeyB64) {
+		const keys = await StorageCore.getSmartMultiple(['VaultKeyB64']);
+		if (!keys.VaultKeyB64) {
 			throw new Error('Vault keys not available');
 		}
 
@@ -393,10 +344,7 @@ export class BackgroundAuthManager {
 			entryId = EntryId;
 		}
 
-		const { vaultKey, domainTagKey } = await importVaultKeys(
-			keys.VaultKeyB64,
-			keys.TagKeyB64,
-		);
+		const { vaultKey } = await importVaultKeys(keys.VaultKeyB64);
 
 		const recordData = {
 			title: domain,
@@ -412,12 +360,10 @@ export class BackgroundAuthManager {
 		const ptJson = JSON.stringify(recordData);
 		const ptBuffer = new TextEncoder().encode(ptJson);
 
-		const { DomainTag, Payload } = await encryptVaultEntry(
+		const { Payload } = await encryptVaultEntry(
 			vaultKey,
-			domainTagKey,
 			ptBuffer.buffer,
 			aadB64,
-			domain,
 		);
 
 		const url = isUpdate
@@ -427,7 +373,6 @@ export class BackgroundAuthManager {
 
 		const body = isUpdate
 			? {
-					DomainTag,
 					Payload: {
 						Nonce: Payload.Nonce,
 						CipherText: Payload.CipherText,
@@ -436,7 +381,6 @@ export class BackgroundAuthManager {
 				}
 			: {
 					EntryId: entryId,
-					DomainTag,
 					Payload: {
 						Nonce: Payload.Nonce,
 						CipherText: Payload.CipherText,

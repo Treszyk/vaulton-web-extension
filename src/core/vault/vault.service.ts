@@ -102,16 +102,11 @@ export class VaultService {
 		try {
 			const { EntryId } = await firstValueFrom(this.api.preCreate());
 
-			const encrypted = await this.crypto.encryptEntry(
-				input,
-				input.website || '',
-				EntryId,
-			);
+			const encrypted = await this.crypto.encryptEntry(input, EntryId);
 
 			await firstValueFrom(
 				this.api.create({
 					EntryId,
-					DomainTag: encrypted.DomainTag,
 					Payload: encrypted.Payload,
 				}),
 			);
@@ -134,15 +129,10 @@ export class VaultService {
 	async updateRecord(id: string, input: VaultRecordInput) {
 		this.isLoading.set(true);
 		try {
-			const encrypted = await this.crypto.encryptEntry(
-				input,
-				input.website || '',
-				id,
-			);
+			const encrypted = await this.crypto.encryptEntry(input, id);
 
 			await firstValueFrom(
 				this.api.update(id, {
-					DomainTag: encrypted.DomainTag,
 					Payload: encrypted.Payload,
 				}),
 			);
