@@ -9,6 +9,11 @@ import {
 	encryptVaultEntry,
 } from '../core/crypto/crypto-core';
 import { bytesToB64 } from '../core/crypto/b64';
+import {
+	performAddRecord,
+	performUpdateRecord,
+} from '../core/vault/vault-operations';
+import { loadVault, saveVault } from '../core/vault/vault-storage';
 
 export class BackgroundAuthManager {
 	async syncVault(_force = false): Promise<boolean> {
@@ -283,23 +288,6 @@ export class BackgroundAuthManager {
 		return !sessionKey;
 	}
 
-	public async getDecryptedVault(): Promise<any[]> {
-		const encryptedVault = await StorageCore.get('EncryptedVault', 'local');
-		if (!encryptedVault) return [];
-
-		const sessionKeyB64 = await StorageCore.get('VaultSessionKey', 'session');
-		if (!sessionKeyB64) return [];
-
-		try {
-			const sessionKey = await importSessionKey(sessionKeyB64);
-			const vaultJson = await decryptVaultCache(sessionKey, encryptedVault);
-			return JSON.parse(vaultJson);
-		} catch (e) {
-			console.error('[Background] Failed to decrypt vault:', e);
-			return [];
-		}
-	}
-
 	public async saveAndUploadCredential(
 		domain: string,
 		username: string,
@@ -313,38 +301,13 @@ export class BackgroundAuthManager {
 			throw new Error('Vault keys not available');
 		}
 
-		const vault = (await this.getDecryptedVault()) || [];
+		const vault = (await loadVault()) || [];
 		const baseDomain = domain.toLowerCase().replace(/^www\./, '');
 		const existingRecord = vault.find(
 			(r: any) =>
 				(r.website === baseDomain || r.title === baseDomain) &&
 				r.username === username,
 		);
-
-		let entryId: string;
-		let isUpdate = false;
-
-		if (existingRecord) {
-			entryId = existingRecord.id;
-			isUpdate = true;
-		} else {
-			const preCreateRes = await fetch(
-				`${API_BASE_URL}/vault/entries/pre-create`,
-				{
-					method: 'POST',
-					headers: {
-						Authorization: `Bearer ${AccessToken}`,
-						'Content-Type': 'application/json',
-					},
-				},
-			);
-			if (!preCreateRes.ok)
-				throw new Error(`Pre-create failed: ${preCreateRes.status}`);
-			const { EntryId } = await preCreateRes.json();
-			entryId = EntryId;
-		}
-
-		const { vaultKey } = await importVaultKeys(keys.VaultKeyB64);
 
 		const recordData = {
 			title: domain,
@@ -356,50 +319,35 @@ export class BackgroundAuthManager {
 			lastModified: Date.now(),
 		};
 
-		const aadB64 = bytesToB64(new TextEncoder().encode(entryId));
-		const ptJson = JSON.stringify(recordData);
-		const ptBuffer = new TextEncoder().encode(ptJson);
+		const cryptoAdapter = {
+			encryptEntry: async (payload: any, aad: string) => {
+				const { vaultKey } = await importVaultKeys(keys.VaultKeyB64);
 
-		const { Payload } = await encryptVaultEntry(
-			vaultKey,
-			ptBuffer.buffer,
-			aadB64,
-		);
-
-		const url = isUpdate
-			? `${API_BASE_URL}/vault/entries/${entryId}`
-			: `${API_BASE_URL}/vault/entries`;
-		const method = isUpdate ? 'PUT' : 'POST';
-
-		const body = isUpdate
-			? {
-					Payload: {
-						Nonce: Payload.Nonce,
-						CipherText: Payload.CipherText,
-						Tag: Payload.Tag,
-					},
-				}
-			: {
-					EntryId: entryId,
-					Payload: {
-						Nonce: Payload.Nonce,
-						CipherText: Payload.CipherText,
-						Tag: Payload.Tag,
-					},
-				};
-
-		const res = await fetch(url, {
-			method,
-			headers: {
-				Authorization: `Bearer ${AccessToken}`,
-				'Content-Type': 'application/json',
+				const aadB64 = bytesToB64(new TextEncoder().encode(aad));
+				const dto = await encryptVaultEntry(
+					vaultKey,
+					new TextEncoder().encode(JSON.stringify(payload)).buffer,
+					aadB64,
+				);
+				return dto;
 			},
-			body: JSON.stringify(body),
-		});
+		};
 
-		if (!res.ok) throw new Error(`${method} failed: ${res.status}`);
+		let entryId: string;
 
-		if (isUpdate) {
+		if (existingRecord) {
+			await performUpdateRecord(
+				cryptoAdapter,
+				AccessToken,
+				existingRecord.id,
+				recordData,
+			);
+			entryId = existingRecord.id;
+		} else {
+			entryId = await performAddRecord(cryptoAdapter, AccessToken, recordData);
+		}
+
+		if (existingRecord) {
 			const index = vault.findIndex((r: any) => r.id === entryId);
 			if (index !== -1) {
 				vault[index] = { ...vault[index], ...recordData };
@@ -411,7 +359,7 @@ export class BackgroundAuthManager {
 			});
 		}
 
-		await this.encryptAndSaveVault(vault);
+		await saveVault(vault);
 	}
 
 	public async setPendingSavePrompt(domain: string, data: any): Promise<void> {
@@ -460,18 +408,5 @@ export class BackgroundAuthManager {
 			delete allPending[domain.toLowerCase()];
 			await StorageCore.set('PendingSavePrompts', allPending, 'local');
 		}
-	}
-
-	private async encryptAndSaveVault(vault: any[]): Promise<void> {
-		const sessionKeyB64 = await StorageCore.get('VaultSessionKey', 'session');
-		if (!sessionKeyB64) {
-			throw new Error('No session key available');
-		}
-
-		const sessionKey = await importSessionKey(sessionKeyB64);
-		const vaultJson = JSON.stringify(vault);
-		const encryptedVault = await encryptVaultCache(sessionKey, vaultJson);
-
-		await StorageCore.set('EncryptedVault', encryptedVault, 'local');
 	}
 }

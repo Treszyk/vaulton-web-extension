@@ -1,30 +1,22 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { BrowserStorageService } from '../storage/browser-storage.service';
 import { VaultRecord, VaultRecordInput } from './vault-record.model';
-import { VaultApiService } from '../api/vault-api.service';
 import { VaultCryptoService } from './vault-crypto.service';
 import { BackgroundAction, BackgroundResponse } from '../messaging';
-import { firstValueFrom } from 'rxjs';
-import {
-	importSessionKey,
-	decryptVaultCache,
-	encryptVaultCache,
-} from '../crypto/crypto-core';
-import { bytesToB64 } from '../crypto/b64';
+
+import { apiDeleteEntry } from '../api/vault-api.client';
+import { performAddRecord, performUpdateRecord } from './vault-operations';
+import { loadVault, saveVault } from './vault-storage';
 
 @Injectable({ providedIn: 'root' })
 export class VaultService {
 	private readonly storage = inject(BrowserStorageService);
-	private readonly api = inject(VaultApiService);
 	private readonly crypto = inject(VaultCryptoService);
 
 	private readonly _records = signal<VaultRecord[]>([]);
 	readonly records = this._records.asReadonly();
 	readonly isLoading = signal(false);
 	readonly isReady = signal(false);
-
-	private readonly LOCAL_VAULT_NAME = 'EncryptedVault';
-	private readonly SESSION_KEY_NAME = 'VaultSessionKey';
 
 	constructor() {
 		this.initStorageListener();
@@ -43,28 +35,8 @@ export class VaultService {
 
 	private async syncStateFromStorage(): Promise<void> {
 		try {
-			const vaultEncrypted = await this.storage.get(
-				this.LOCAL_VAULT_NAME,
-				'local',
-			);
-			const sessionKeyB64 = await this.storage.get(
-				'VaultSessionKey',
-				'session',
-			);
-
-			if (vaultEncrypted && sessionKeyB64) {
-				try {
-					const sessionKey = await importSessionKey(sessionKeyB64);
-					const json = await decryptVaultCache(sessionKey, vaultEncrypted);
-					const records = JSON.parse(json);
-					this._records.set(records);
-				} catch (e) {
-					console.error('Failed to decrypt stored vault', e);
-					this._records.set([]);
-				}
-			} else {
-				this._records.set([]);
-			}
+			const records = await loadVault();
+			this._records.set(records);
 		} finally {
 			this.isReady.set(true);
 		}
@@ -100,22 +72,18 @@ export class VaultService {
 	async addRecord(input: VaultRecordInput) {
 		this.isLoading.set(true);
 		try {
-			const { EntryId } = await firstValueFrom(this.api.preCreate());
+			const { AccessToken } = await this.storage.getSmartMultiple([
+				'AccessToken',
+			]);
+			if (!AccessToken) throw new Error('Not authenticated');
 
-			const encrypted = await this.crypto.encryptEntry(input, EntryId);
-
-			await firstValueFrom(
-				this.api.create({
-					EntryId,
-					Payload: encrypted.Payload,
-				}),
-			);
+			const EntryId = await performAddRecord(this.crypto, AccessToken, input);
 
 			const newRecord: VaultRecord = { ...input, id: EntryId };
 			const current = this._records();
 			const updated = [newRecord, ...current];
 			this._records.set(updated);
-			await this.persistToLocal(updated);
+			await saveVault(updated);
 
 			return true;
 		} catch (e) {
@@ -129,20 +97,19 @@ export class VaultService {
 	async updateRecord(id: string, input: VaultRecordInput) {
 		this.isLoading.set(true);
 		try {
-			const encrypted = await this.crypto.encryptEntry(input, id);
+			const { AccessToken } = await this.storage.getSmartMultiple([
+				'AccessToken',
+			]);
+			if (!AccessToken) throw new Error('Not authenticated');
 
-			await firstValueFrom(
-				this.api.update(id, {
-					Payload: encrypted.Payload,
-				}),
-			);
+			await performUpdateRecord(this.crypto, AccessToken, id, input);
 
 			const currentList = this._records();
 			const updated = currentList.map((r) =>
 				r.id === id ? { ...r, ...input } : r,
 			);
 			this._records.set(updated);
-			await this.persistToLocal(updated);
+			await saveVault(updated);
 
 			return true;
 		} catch (e) {
@@ -156,12 +123,17 @@ export class VaultService {
 	async deleteRecord(id: string) {
 		this.isLoading.set(true);
 		try {
-			await firstValueFrom(this.api.delete(id));
+			const { AccessToken } = await this.storage.getSmartMultiple([
+				'AccessToken',
+			]);
+			if (!AccessToken) throw new Error('Not authenticated');
+
+			await apiDeleteEntry(AccessToken, id);
 
 			const current = this._records();
 			const updated = current.filter((r) => r.id !== id);
 			this._records.set(updated);
-			await this.persistToLocal(updated);
+			await saveVault(updated);
 
 			return true;
 		} catch (e) {
@@ -170,32 +142,6 @@ export class VaultService {
 		} finally {
 			this.isLoading.set(false);
 		}
-	}
-
-	private async persistToLocal(records: VaultRecord[]) {
-		let sessionKeyB64 = await this.storage.get(
-			this.SESSION_KEY_NAME,
-			'session',
-		);
-		let sessionKey: CryptoKey;
-
-		if (!sessionKeyB64) {
-			sessionKey = await crypto.subtle.generateKey(
-				{ name: 'AES-GCM', length: 256 },
-				true,
-				['encrypt', 'decrypt'],
-			);
-			const raw = await crypto.subtle.exportKey('raw', sessionKey);
-			const b64 = bytesToB64(new Uint8Array(raw));
-			await this.storage.set(this.SESSION_KEY_NAME, b64, 'session');
-		} else {
-			sessionKey = await importSessionKey(sessionKeyB64);
-		}
-
-		const json = JSON.stringify(records);
-		const encryptedCache = await encryptVaultCache(sessionKey, json);
-
-		await this.storage.set(this.LOCAL_VAULT_NAME, encryptedCache, 'local');
 	}
 
 	private sendCommand(action: BackgroundAction): Promise<BackgroundResponse> {

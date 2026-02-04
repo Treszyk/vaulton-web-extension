@@ -2,6 +2,7 @@
 import { BackgroundAuthManager } from './auth-manager';
 import { browserApi } from '../core/storage/storage-core';
 import { BackgroundAction, BackgroundResponse } from '../core/messaging';
+import { loadVault } from '../core/vault/vault-storage';
 import { API_BASE_URL } from '../config';
 
 const auth = new BackgroundAuthManager();
@@ -113,7 +114,7 @@ async function getCredentialsForDomain(
 			return { credentials: [], locked: true };
 		}
 
-		const vault = await auth.getDecryptedVault();
+		const vault = await loadVault();
 		if (!vault || vault.length === 0) {
 			return { credentials: [], locked: false };
 		}
@@ -153,7 +154,7 @@ async function checkCredentialExists(
 			return { action: 'ignore' };
 		}
 
-		const vault = await auth.getDecryptedVault();
+		const vault = await loadVault();
 		if (!vault || vault.length === 0) {
 			return { action: 'save' };
 		}

@@ -213,7 +213,7 @@ export async function importVaultKeys(
 			'raw',
 			vaultKeyRaw as BufferSource,
 			{ name: 'AES-GCM', length: 256 },
-			true,
+			false,
 			['encrypt', 'decrypt'],
 		);
 
@@ -280,7 +280,7 @@ export async function importSessionKey(keyB64: string): Promise<CryptoKey> {
 			'raw',
 			raw as BufferSource,
 			{ name: 'AES-GCM', length: 256 },
-			true,
+			false,
 			['encrypt', 'decrypt'],
 		);
 	} finally {
