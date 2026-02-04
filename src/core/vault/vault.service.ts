@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { BrowserStorageService } from '../storage/browser-storage.service';
+
 import { VaultRecord, VaultRecordInput } from './vault-record.model';
 import { VaultCryptoService } from './vault-crypto.service';
 import { BackgroundAction, BackgroundResponse } from '../messaging';
@@ -10,7 +10,6 @@ import { loadVault, saveVault } from './vault-storage';
 
 @Injectable({ providedIn: 'root' })
 export class VaultService {
-	private readonly storage = inject(BrowserStorageService);
 	private readonly crypto = inject(VaultCryptoService);
 
 	private readonly _records = signal<VaultRecord[]>([]);
@@ -72,12 +71,7 @@ export class VaultService {
 	async addRecord(input: VaultRecordInput) {
 		this.isLoading.set(true);
 		try {
-			const { AccessToken } = await this.storage.getSmartMultiple([
-				'AccessToken',
-			]);
-			if (!AccessToken) throw new Error('Not authenticated');
-
-			const EntryId = await performAddRecord(this.crypto, AccessToken, input);
+			const EntryId = await performAddRecord(this.crypto, input);
 
 			const newRecord: VaultRecord = { ...input, id: EntryId };
 			const current = this._records();
@@ -97,12 +91,7 @@ export class VaultService {
 	async updateRecord(id: string, input: VaultRecordInput) {
 		this.isLoading.set(true);
 		try {
-			const { AccessToken } = await this.storage.getSmartMultiple([
-				'AccessToken',
-			]);
-			if (!AccessToken) throw new Error('Not authenticated');
-
-			await performUpdateRecord(this.crypto, AccessToken, id, input);
+			await performUpdateRecord(this.crypto, id, input);
 
 			const currentList = this._records();
 			const updated = currentList.map((r) =>
@@ -123,12 +112,7 @@ export class VaultService {
 	async deleteRecord(id: string) {
 		this.isLoading.set(true);
 		try {
-			const { AccessToken } = await this.storage.getSmartMultiple([
-				'AccessToken',
-			]);
-			if (!AccessToken) throw new Error('Not authenticated');
-
-			await apiDeleteEntry(AccessToken, id);
+			await apiDeleteEntry(id);
 
 			const current = this._records();
 			const updated = current.filter((r) => r.id !== id);

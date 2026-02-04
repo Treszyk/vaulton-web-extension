@@ -1,9 +1,11 @@
-import { Injectable, inject } from '@angular/core';
-import { AuthCryptoService } from '../auth/auth-crypto.service';
+import { Injectable } from '@angular/core';
+import { StorageCore } from '../storage/storage-core';
 import {
-	EncryptedValueDto,
-	EncryptedEntryResult,
-} from '../crypto/worker/crypto.worker.types';
+	importVaultKeys,
+	encryptVaultEntry,
+	decryptVaultEntry,
+} from '../crypto/crypto-core';
+import { EncryptedValueDto } from '../crypto/worker/crypto.worker.types';
 import { bytesToB64 } from '../crypto/b64';
 import { VaultRecordInput } from './vault-record.model';
 
@@ -11,21 +13,24 @@ export type PlainEntry = VaultRecordInput;
 
 @Injectable({ providedIn: 'root' })
 export class VaultCryptoService {
-	private readonly authCrypto = inject(AuthCryptoService);
-
 	async encryptEntry(
 		entry: PlainEntry,
 		aadStr: string,
-	): Promise<EncryptedEntryResult> {
-		const json = JSON.stringify(entry);
-		const aadB64 = bytesToB64(new TextEncoder().encode(aadStr));
+	): Promise<{ Payload: EncryptedValueDto }> {
+		const vaultKeyB64 = await StorageCore.get('VaultKeyB64', 'session');
+		if (!vaultKeyB64) throw new Error('Vault locked');
 
+		const { vaultKey } = await importVaultKeys(vaultKeyB64);
+		const aadB64 = bytesToB64(new TextEncoder().encode(aadStr));
+		const json = JSON.stringify(entry);
 		const ptBytes = new TextEncoder().encode(json);
+
 		try {
-			return await this.authCrypto.encryptEntry(ptBytes.buffer, aadB64);
+			const dto = await encryptVaultEntry(vaultKey, ptBytes.buffer, aadB64);
+			return dto;
 		} finally {
 			try {
-				ptBytes.fill(0);
+				if (ptBytes) ptBytes.fill(0);
 			} catch {}
 		}
 	}
@@ -34,8 +39,14 @@ export class VaultCryptoService {
 		dto: EncryptedValueDto,
 		aadStr: string,
 	): Promise<PlainEntry> {
+		const vaultKeyB64 = await StorageCore.get('VaultKeyB64', 'session');
+		if (!vaultKeyB64) throw new Error('Vault locked');
+
+		const { vaultKey } = await importVaultKeys(vaultKeyB64);
 		const aadB64 = bytesToB64(new TextEncoder().encode(aadStr));
-		const json = await this.authCrypto.decryptEntry(dto, aadB64);
+
+		const ptBuf = await decryptVaultEntry(vaultKey, dto, aadB64);
+		const json = new TextDecoder().decode(ptBuf);
 		return JSON.parse(json) as PlainEntry;
 	}
 }

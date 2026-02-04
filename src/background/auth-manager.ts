@@ -336,15 +336,10 @@ export class BackgroundAuthManager {
 		let entryId: string;
 
 		if (existingRecord) {
-			await performUpdateRecord(
-				cryptoAdapter,
-				AccessToken,
-				existingRecord.id,
-				recordData,
-			);
+			await performUpdateRecord(cryptoAdapter, existingRecord.id, recordData);
 			entryId = existingRecord.id;
 		} else {
-			entryId = await performAddRecord(cryptoAdapter, AccessToken, recordData);
+			entryId = await performAddRecord(cryptoAdapter, recordData);
 		}
 
 		if (existingRecord) {

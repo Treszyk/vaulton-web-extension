@@ -1,15 +1,14 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { AuthApiService } from '../api/auth-api.service';
-import { BrowserStorageService } from '../storage/browser-storage.service';
+
 import { StorageCore } from '../storage/storage-core';
 import { AuthCryptoService } from './auth-crypto.service';
-import { firstValueFrom } from 'rxjs';
 import { BackgroundAction, BackgroundResponse } from '../messaging';
+import { fetchClient } from '../api/fetch-client';
+import { apiPreLogin } from '../api/auth-api.client';
+import { API_BASE_URL } from '../../config';
 
 @Injectable({ providedIn: 'root' })
 export class SessionService {
-	private api = inject(AuthApiService);
-	private storage = inject(BrowserStorageService);
 	private crypto = inject(AuthCryptoService);
 
 	readonly isAuthenticated = signal(false);
@@ -31,14 +30,14 @@ export class SessionService {
 	}
 
 	private async syncStateFromStorage(): Promise<void> {
-		const local = await this.storage.getMultiple(
+		const local = await StorageCore.getMultiple(
 			['AccountId', 'LockoutStrategy'],
 			'local',
 		);
 		this.accountId.set(local['AccountId'] || null);
 		this.lockoutStrategy.set(local['LockoutStrategy'] || 'OnQuit');
 
-		const data = await this.storage.getSmartMultiple([
+		const data = await StorageCore.getSmartMultiple([
 			'AccessToken',
 			'VaultKeyB64',
 		]);
@@ -51,7 +50,8 @@ export class SessionService {
 		await this.syncStateFromStorage();
 		if (this.isAuthenticated()) {
 			try {
-				await firstValueFrom(this.api.me());
+				// apiMe uses fetchClient, so it auto-refreshes if needed
+				await fetchClient(`${API_BASE_URL}/auth/me`);
 			} catch (e) {
 				await this.logout();
 			}
@@ -59,7 +59,7 @@ export class SessionService {
 	}
 
 	async login(accountId: string, password: string): Promise<void> {
-		const preLogin = await firstValueFrom(this.api.preLogin(accountId));
+		const preLogin = await apiPreLogin(accountId);
 
 		const { verifier } = await this.crypto.buildLogin(password, preLogin);
 
@@ -108,7 +108,7 @@ export class SessionService {
 
 	async setLockoutStrategy(strategy: string): Promise<void> {
 		const oldArea = await StorageCore.detectArea();
-		await this.storage.set('LockoutStrategy', strategy, 'local');
+		await StorageCore.set('LockoutStrategy', strategy, 'local');
 		const newArea = await StorageCore.detectArea();
 
 		if (oldArea !== newArea && this.isAuthenticated()) {
@@ -118,9 +118,9 @@ export class SessionService {
 				'RefreshExpiresAt',
 				'VaultKeyB64',
 			];
-			const data = await this.storage.getMultiple(keys, oldArea);
-			await this.storage.setMultiple(data, newArea);
-			await this.storage.removeMultiple(keys, oldArea);
+			const data = await StorageCore.getMultiple(keys, oldArea);
+			await StorageCore.setMultiple(data, newArea);
+			await StorageCore.removeMultiple(keys, oldArea);
 		}
 
 		await this.syncStateFromStorage();

@@ -5,11 +5,7 @@ import { Argon2KdfProvider } from '../kdf/argon2-kdf';
 import {
 	computeLoginVerifier,
 	deriveVaultKeys,
-	decryptVaultEntry,
-	encryptVaultEntry,
 	importVaultKeys,
-	encryptVaultCache,
-	decryptVaultCache,
 } from '../crypto-core';
 import type {
 	WorkerRequest,
@@ -105,44 +101,11 @@ addEventListener(
 					}
 					break;
 				}
-				case 'ENCRYPT_ENTRY': {
-					if (!vaultKey) throw new Error('Vault locked');
-					const { plaintextBuffer, aadB64 } = request.payload;
-					const result = await encryptVaultEntry(
-						vaultKey,
-						plaintextBuffer,
-						aadB64,
-					);
-					postSuccess(id, result);
-					break;
-				}
-				case 'DECRYPT_ENTRY': {
-					if (!vaultKey) throw new Error('Vault locked');
-					const { dto, aadB64 } = request.payload;
-					const ptBuf = await decryptVaultEntry(vaultKey, dto, aadB64);
-					postSuccess(id, { ptBuffer: ptBuf }, [ptBuf]);
-					break;
-				}
-
 				case 'IMPORT_KEYS': {
 					const { vaultKeyB64 } = request.payload;
 					const keys = await importVaultKeys(vaultKeyB64);
 					vaultKey = keys.vaultKey;
 					postSuccess(id, { ok: true });
-					break;
-				}
-				case 'ENCRYPT_CACHE': {
-					if (!vaultKey) throw new Error('Vault locked');
-					const { plaintext } = request.payload;
-					const result = await encryptVaultCache(vaultKey, plaintext);
-					postSuccess(id, { result });
-					break;
-				}
-				case 'DECRYPT_CACHE': {
-					if (!vaultKey) throw new Error('Vault locked');
-					const { combinedB64 } = request.payload;
-					const result = await decryptVaultCache(vaultKey, combinedB64);
-					postSuccess(id, { result });
 					break;
 				}
 				default:

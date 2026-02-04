@@ -38,6 +38,24 @@ browserApi.storage.onChanged.addListener((changes: { [key: string]: any }) => {
 		);
 		auth.resetLockTimer();
 	}
+
+	if (changes['VaultKeyB64'] && !changes['VaultKeyB64'].newValue) {
+		const newToken = changes['AccessToken']?.newValue;
+		if (newToken) {
+			return;
+		}
+		auth.isLocked().then((locked) => {
+			if (!locked) {
+				console.warn('[Background] VaultKey lost! Locking...');
+				auth.clearSession();
+			}
+		});
+	}
+
+	if (changes['VaultSessionKey'] && !changes['VaultSessionKey'].newValue) {
+		console.warn('[Background] Session Key lost! Restoring...');
+		auth.syncVault();
+	}
 });
 
 browserApi.runtime.onMessage.addListener(

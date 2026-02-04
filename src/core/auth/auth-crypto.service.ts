@@ -1,19 +1,15 @@
 import { Injectable, inject } from '@angular/core';
 import { CryptoWorkerFactory } from '../crypto/worker/crypto-worker.factory';
-import { BrowserStorageService } from '../storage/browser-storage.service';
 import { StorageCore } from '../storage/storage-core';
-import type { PreLoginResponse } from '../api/auth-api.service';
+import { PreLoginResponse } from '../api/auth-api.client';
 import type {
 	EncryptedValueDto,
 	CheckStatusResponse,
-	EncryptedEntryResult,
-	DecryptEntryResult,
 } from '../crypto/worker/crypto.worker.types';
 
 @Injectable({ providedIn: 'root' })
 export class AuthCryptoService {
 	private workerFactory = inject(CryptoWorkerFactory);
-	private storage = inject(BrowserStorageService);
 	private worker: Worker | null = null;
 	private pendingRequests = new Map<
 		string,
@@ -57,7 +53,10 @@ export class AuthCryptoService {
 			};
 
 			const area = await StorageCore.detectArea();
-			const storedKeys = await this.storage.getMultiple(['VaultKeyB64'], area);
+			const storedKeys = (await StorageCore.getMultiple(
+				['VaultKeyB64'],
+				area,
+			)) as { VaultKeyB64?: string };
 
 			if (storedKeys['VaultKeyB64']) {
 				const id = 'HYDRATE_' + crypto.randomUUID();
@@ -197,7 +196,7 @@ export class AuthCryptoService {
 			);
 
 			if (res.vaultKeyB64) {
-				await this.storage.set('VaultKeyB64', res.vaultKeyB64, 'session');
+				await StorageCore.set('VaultKeyB64', res.vaultKeyB64, 'session');
 			}
 		} finally {
 			if (pwdBytes) {
@@ -224,48 +223,12 @@ export class AuthCryptoService {
 
 	async clearKeys(): Promise<void> {
 		try {
-			await this.storage.removeMultiple(
+			await StorageCore.removeMultiple(
 				['VaultKeyB64', 'VaultSessionKey'],
 				'session',
 			);
 			await this.postToWorker('CLEAR_KEYS', {});
 		} catch {}
-	}
-
-	async encryptEntry(
-		plaintextBuffer: ArrayBuffer,
-		aadB64: string,
-	): Promise<EncryptedEntryResult> {
-		return this.postToWorker<EncryptedEntryResult>(
-			'ENCRYPT_ENTRY',
-			{
-				plaintextBuffer,
-				aadB64,
-			},
-			[plaintextBuffer],
-		);
-	}
-
-	async decryptEntry(dto: EncryptedValueDto, aadB64: string): Promise<string> {
-		const res = await this.postToWorker<DecryptEntryResult>('DECRYPT_ENTRY', {
-			dto,
-			aadB64,
-		});
-		return new TextDecoder().decode(res.ptBuffer);
-	}
-
-	async encryptVaultCache(plaintext: string): Promise<string> {
-		const res = await this.postToWorker<{ result: string }>('ENCRYPT_CACHE', {
-			plaintext,
-		});
-		return res.result;
-	}
-
-	async decryptVaultCache(combinedB64: string): Promise<string> {
-		const res = await this.postToWorker<{ result: string }>('DECRYPT_CACHE', {
-			combinedB64,
-		});
-		return res.result;
 	}
 
 	private async postToWorker<T>(

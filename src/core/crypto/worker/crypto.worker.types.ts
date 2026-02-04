@@ -37,17 +37,6 @@ export type WorkerRequest =
 			};
 	  }
 	| {
-			type: 'ENCRYPT_ENTRY';
-			payload: {
-				plaintextBuffer: ArrayBuffer;
-				aadB64: string;
-			};
-	  }
-	| {
-			type: 'DECRYPT_ENTRY';
-			payload: { dto: EncryptedValueDto; aadB64: string };
-	  }
-	| {
 			type: 'ACTIVATE_PASSCODE';
 			payload: {
 				passwordBuffer: ArrayBuffer;
@@ -73,14 +62,6 @@ export type WorkerRequest =
 			payload: {
 				vaultKeyB64: string;
 			};
-	  }
-	| {
-			type: 'ENCRYPT_CACHE';
-			payload: { plaintext: string };
-	  }
-	| {
-			type: 'DECRYPT_CACHE';
-			payload: { combinedB64: string };
 	  };
 
 export interface WorkerResponseEnvelope<T> {
@@ -93,14 +74,6 @@ export interface WorkerResponseEnvelope<T> {
 export interface WorkerMessage<T> {
 	id: string;
 	payload: T;
-}
-
-export interface EncryptedEntryResult {
-	Payload: EncryptedValueDto;
-}
-
-export interface DecryptEntryResult {
-	ptBuffer: ArrayBuffer;
 }
 
 export interface CheckStatusResponse {

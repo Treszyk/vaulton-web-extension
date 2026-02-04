@@ -20,14 +20,13 @@ export interface VaultOperationCrypto {
 
 export async function performAddRecord(
 	crypto: VaultOperationCrypto,
-	token: string,
 	input: VaultRecordInput,
 ): Promise<string> {
-	const { EntryId } = await apiPreCreateEntry(token);
+	const { EntryId } = await apiPreCreateEntry();
 
 	const encrypted = await crypto.encryptEntry(input, EntryId);
 
-	await apiCreateEntry(token, {
+	await apiCreateEntry({
 		EntryId,
 		Payload: encrypted.Payload,
 	});
@@ -37,13 +36,12 @@ export async function performAddRecord(
 
 export async function performUpdateRecord(
 	crypto: VaultOperationCrypto,
-	token: string,
 	id: string,
 	input: VaultRecordInput,
 ): Promise<void> {
 	const encrypted = await crypto.encryptEntry(input, id);
 
-	await apiUpdateEntry(token, id, {
+	await apiUpdateEntry(id, {
 		Payload: encrypted.Payload,
 	});
 }
