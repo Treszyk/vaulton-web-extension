@@ -21,7 +21,9 @@ export class VaultCryptoService {
 		if (!vaultKeyB64) throw new Error('Vault locked');
 
 		const { vaultKey } = await importVaultKeys(vaultKeyB64);
-		const aadB64 = bytesToB64(new TextEncoder().encode(aadStr));
+		const aadB64 = bytesToB64(
+			new TextEncoder().encode(`vaulton:v-entry:${aadStr}`),
+		);
 		const json = JSON.stringify(entry);
 		const ptBytes = new TextEncoder().encode(json);
 
@@ -43,7 +45,9 @@ export class VaultCryptoService {
 		if (!vaultKeyB64) throw new Error('Vault locked');
 
 		const { vaultKey } = await importVaultKeys(vaultKeyB64);
-		const aadB64 = bytesToB64(new TextEncoder().encode(aadStr));
+		const aadB64 = bytesToB64(
+			new TextEncoder().encode(`vaulton:v-entry:${aadStr}`),
+		);
 
 		const ptBuf = await decryptVaultEntry(vaultKey, dto, aadB64);
 		const json = new TextDecoder().decode(ptBuf);

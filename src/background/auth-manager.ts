@@ -64,7 +64,9 @@ export class BackgroundAuthManager {
 			const decryptedEntries: any[] = [];
 			for (const entry of encryptedEntries) {
 				try {
-					const aadB64 = bytesToB64(new TextEncoder().encode(entry.Id));
+					const aadB64 = bytesToB64(
+						new TextEncoder().encode(`vaulton:v-entry:${entry.Id}`),
+					);
 					const ptBuffer = await decryptVaultEntry(
 						vaultKey,
 						entry.Payload,
@@ -323,7 +325,9 @@ export class BackgroundAuthManager {
 			encryptEntry: async (payload: any, aad: string) => {
 				const { vaultKey } = await importVaultKeys(keys.VaultKeyB64);
 
-				const aadB64 = bytesToB64(new TextEncoder().encode(aad));
+				const aadB64 = bytesToB64(
+					new TextEncoder().encode(`vaulton:v-entry:${aad}`),
+				);
 				const dto = await encryptVaultEntry(
 					vaultKey,
 					new TextEncoder().encode(JSON.stringify(payload)).buffer,
