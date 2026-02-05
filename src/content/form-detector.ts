@@ -29,6 +29,8 @@ export class FormDetector {
 		passwordInputs.forEach((passwordInput) => {
 			if (!passwordInput.offsetParent) return;
 
+			if (this.scorePasswordInput(passwordInput) < 70) return;
+
 			const pid = (passwordInput.id || '').toLowerCase();
 			const pname = (passwordInput.name || '').toLowerCase();
 			if (pid.includes('fake') || pname.includes('fake')) return;
@@ -56,6 +58,29 @@ export class FormDetector {
 		this.detectStandaloneUsernames();
 
 		return this.forms;
+	}
+
+	private scorePasswordInput(input: HTMLInputElement): number {
+		let score = 100;
+		const name = (input.name || '').toLowerCase();
+		const id = (input.id || '').toLowerCase();
+		const autocomplete = (input.autocomplete || '').toLowerCase();
+		const inputMode = (input.inputMode || '').toLowerCase();
+		const placeholder = (input.placeholder || '').toLowerCase();
+		const maxLength = input.maxLength;
+
+		if (autocomplete === 'one-time-code') score -= 60;
+
+		if (maxLength > 0 && maxLength <= 6) score -= 40;
+
+		if (inputMode === 'numeric' || inputMode === 'decimal') score -= 30;
+
+		const negativeRegex =
+			/pin|otp|code|token|verification|mfa|2fa|verification|security|auth/i;
+		if (negativeRegex.test(name) || negativeRegex.test(id)) score -= 30;
+		if (negativeRegex.test(placeholder)) score -= 20;
+
+		return score;
 	}
 
 	private detectStandaloneUsernames(): void {
@@ -276,7 +301,7 @@ export class FormDetector {
 		if (positiveRegex.test(placeholder)) score += 10;
 
 		const negativeRegex =
-			/search|query|title|subject|date|year|age|captcha|otp|code|promo|coupon|subscribe/;
+			/search|query|title|subject|date|year|age|captcha|otp|code|promo|coupon|subscribe|pin|verification|token/;
 
 		if (negativeRegex.test(name)) score -= 50;
 		if (negativeRegex.test(id)) score -= 50;

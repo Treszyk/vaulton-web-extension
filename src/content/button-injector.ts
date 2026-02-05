@@ -6,6 +6,59 @@ export interface VaultonButton {
 
 export class ButtonInjector {
 	private buttons: Map<HTMLInputElement, VaultonButton> = new Map();
+	private static shadowRoot: ShadowRoot | null = null;
+
+	private static getOverlayHost(): ShadowRoot {
+		if (this.shadowRoot) return this.shadowRoot;
+
+		const host = document.createElement('div');
+		host.id = 'vaulton-overlay-host';
+		host.style.cssText = `
+			position: fixed !important;
+			top: 0 !important;
+			left: 0 !important;
+			width: 0 !important;
+			height: 0 !important;
+			z-index: 2147483647 !important;
+			pointer-events: none !important;
+		`;
+		document.body.appendChild(host);
+		this.shadowRoot = host.attachShadow({ mode: 'open' });
+
+		const style = document.createElement('style');
+		style.textContent = `
+			.vaulton-autofill-btn {
+				display: none;
+				position: fixed !important;
+				width: 28px !important;
+				height: 28px !important;
+				padding: 0 !important;
+				background: white !important;
+				border: 1.5px solid #a855f7 !important;
+				border-radius: 6px !important;
+				cursor: pointer !important;
+				z-index: 2147483647 !important;
+				transition: border-color 0.2s, transform 0.2s !important;
+				pointer-events: auto !important;
+				box-sizing: border-box !important;
+				box-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
+			}
+			.vaulton-autofill-btn:hover {
+				border-color: #c084fc !important;
+				transform: scale(1.1) !important;
+			}
+			.vaulton-autofill-btn img {
+				width: 100% !important;
+				height: 100% !important;
+				display: block !important;
+				object-fit: contain !important;
+				pointer-events: none !important;
+			}
+		`;
+		this.shadowRoot.appendChild(style);
+
+		return this.shadowRoot;
+	}
 
 	injectButton(
 		input: HTMLInputElement,
@@ -20,12 +73,10 @@ export class ButtonInjector {
 		}
 
 		const button = this.createButton(() => onClick(input));
-		const cleanup = this.positionButton(input, button);
+		const shadow = ButtonInjector.getOverlayHost();
+		shadow.appendChild(button);
 
-		if (!cleanup) {
-			button.remove();
-			return null;
-		}
+		const cleanup = this.positionButton(input, button);
 
 		const vaultonButton: VaultonButton = {
 			element: button,
@@ -51,34 +102,18 @@ export class ButtonInjector {
 		this.buttons.forEach((button) => button.cleanup());
 		this.buttons.clear();
 
-		const zombies = document.querySelectorAll('.vaulton-autofill-btn');
-		zombies.forEach((z) => z.remove());
+		if (ButtonInjector.shadowRoot) {
+			const styles = ButtonInjector.shadowRoot.querySelectorAll('style');
+			ButtonInjector.shadowRoot.innerHTML = '';
+			styles.forEach((s) => ButtonInjector.shadowRoot?.appendChild(s));
+		}
 	}
 
 	private createButton(onClick: () => void): HTMLElement {
 		const button = document.createElement('div');
 		button.className = 'vaulton-autofill-btn';
 		const iconUrl = chrome.runtime.getURL('icons/icon.png');
-		button.innerHTML = `<img src="${iconUrl}" style="width: 100% !important; height: 100% !important; display: block !important; object-fit: contain !important; pointer-events: none !important;" />`;
-
-		button.style.cssText = `
-			display: block !important;
-			position: absolute !important;
-			top: 50% !important;
-			transform: translateY(-50%) !important;
-			width: 28px !important;
-			height: 28px !important;
-			padding: 0 !important;
-			background: transparent !important;
-			border: 2px solid #a855f7 !important;
-			border-radius: 6px !important;
-			cursor: pointer !important;
-			z-index: 99999 !important;
-			transition: all 0.2s !important;
-			pointer-events: auto !important;
-			opacity: 1 !important;
-			box-sizing: border-box !important;
-		`;
+		button.innerHTML = `<img src="${iconUrl}" />`;
 
 		button.addEventListener('click', (e) => {
 			e.stopPropagation();
@@ -86,163 +121,187 @@ export class ButtonInjector {
 			onClick();
 		});
 
-		button.addEventListener('mouseenter', () => {
-			button.style.setProperty('border-color', '#c084fc', 'important');
-			button.style.setProperty(
-				'transform',
-				'translateY(-50%) scale(1.1)',
-				'important',
-			);
-		});
-
-		button.addEventListener('mouseleave', () => {
-			button.style.setProperty('border-color', '#a855f7', 'important');
-			button.style.setProperty(
-				'transform',
-				'translateY(-50%) scale(1)',
-				'important',
-			);
-		});
-
-		const style = document.createElement('style');
-		style.textContent = `
-			@keyframes vaultonFadeIn {
-				from { opacity: 0; }
-				to { opacity: 1; }
-			}
-		`;
-		document.head.appendChild(style);
-
 		return button;
+	}
+
+	private isElementVisible(el: HTMLElement): boolean {
+		if (!el.isConnected) return false;
+
+		let current: HTMLElement | null = el;
+		while (current) {
+			const style = window.getComputedStyle(current);
+			if (
+				style.display === 'none' ||
+				style.visibility === 'hidden' ||
+				parseFloat(style.opacity) < 0.1
+			) {
+				return false;
+			}
+			current = current.parentElement;
+		}
+
+		if (el.offsetWidth === 0 || el.offsetHeight === 0) {
+			return false;
+		}
+
+		return true;
+	}
+
+	private isObstructed(input: HTMLElement, button: HTMLElement): boolean {
+		const rect = input.getBoundingClientRect();
+		const x = rect.left + rect.width / 2;
+		const y = rect.top + rect.height / 2;
+
+		if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) {
+			return true;
+		}
+
+		const elementAtPoint = document.elementFromPoint(x, y);
+
+		if (!elementAtPoint) return true;
+
+		if (elementAtPoint === input || input.contains(elementAtPoint))
+			return false;
+
+		if (input instanceof HTMLInputElement && input.labels) {
+			for (let i = 0; i < input.labels.length; i++) {
+				if (
+					input.labels[i] === elementAtPoint ||
+					input.labels[i].contains(elementAtPoint)
+				) {
+					return false;
+				}
+			}
+		}
+
+		if (elementAtPoint === button || button.contains(elementAtPoint))
+			return false;
+
+		return true;
 	}
 
 	private positionButton(
 		input: HTMLInputElement,
 		button: HTMLElement,
-	): (() => void) | null {
-		const parent = input.parentElement;
-		if (!parent) return null;
+	): () => void {
+		let lastAppliedPadding = 0;
+		let isVisibleInViewport = false;
+		let animationId: number | null = null;
 
-		const computedPosition = window.getComputedStyle(parent).position;
-		const needsRelative = computedPosition === 'static';
-		if (needsRelative) {
-			parent.style.position = 'relative';
+		const initialStyle = window.getComputedStyle(input);
+		const originalPaddingRight = parseFloat(initialStyle.paddingRight) || 0;
+
+		let hasRightIcon = originalPaddingRight > 20;
+
+		if (!hasRightIcon && input.isConnected) {
+			const rect = input.getBoundingClientRect();
+			if (rect.width > 40 && rect.height > 20) {
+				const probeX = rect.right - 20;
+				const probeY = rect.top + rect.height / 2;
+				const elAtPoint = document.elementFromPoint(probeX, probeY);
+
+				if (elAtPoint && elAtPoint !== input && !input.contains(elAtPoint)) {
+					if (!elAtPoint.contains(input)) {
+						hasRightIcon = true;
+					}
+				}
+			}
 		}
 
-		parent.appendChild(button);
-
-		let lastAppliedPadding = 0;
+		const rightIconOffset = hasRightIcon
+			? Math.max(originalPaddingRight, 30)
+			: 0;
+		const originalBoxSizing = initialStyle.boxSizing;
 
 		const update = () => {
-			if (!input.isConnected || !button.isConnected) return;
+			if (!input.isConnected || !button.isConnected) {
+				button.style.display = 'none';
+				return;
+			}
+
+			if (!this.isElementVisible(input) || !isVisibleInViewport) {
+				button.style.display = 'none';
+				return;
+			}
+
+			if (this.isObstructed(input, button)) {
+				button.style.display = 'none';
+				return;
+			}
 
 			const inputRect = input.getBoundingClientRect();
+
 			if (inputRect.width === 0 || inputRect.height === 0) {
 				button.style.display = 'none';
 				return;
 			}
+
 			button.style.display = 'block';
 
-			const scanBarrier = (
-				container: HTMLElement,
-				referenceRect: DOMRect,
-			): number => {
-				const containerRect = container.getBoundingClientRect();
-				let localBarrier = containerRect.right;
+			const top = inputRect.top + inputRect.height / 2 - 14;
 
-				const children = Array.from(container.children);
-				for (const child of children) {
-					if (
-						child === input ||
-						child === button ||
-						child === parent ||
-						child.contains(input)
-					)
-						continue;
-					if (child.tagName === 'SCRIPT' || child.tagName === 'STYLE') continue;
+			const currentStyle = window.getComputedStyle(input);
+			const borderRight = parseFloat(currentStyle.borderRightWidth) || 0;
+			const iconWidth = 28;
+			const rightMargin = 4;
 
-					const childRect = child.getBoundingClientRect();
-					if (
-						childRect.width === 0 ||
-						childRect.height === 0 ||
-						childRect.width > referenceRect.width * 0.9
-					)
-						continue;
+			const rightOffset = rightIconOffset + iconWidth + rightMargin;
 
-					const verticalOverlap = Math.max(
-						0,
-						Math.min(referenceRect.bottom, childRect.bottom) -
-							Math.max(referenceRect.top, childRect.top),
-					);
-					if (verticalOverlap < childRect.height * 0.2) continue;
+			const left = inputRect.right - borderRight - rightOffset;
 
-					const childCenterX = childRect.left + childRect.width / 2;
-					const containerCenterX = containerRect.left + containerRect.width / 2;
-					if (childCenterX < containerCenterX) continue;
+			const finalLeft = Math.max(left, inputRect.left + 4);
 
-					if (childRect.left < localBarrier) {
-						localBarrier = childRect.left;
-					}
-				}
-				return localBarrier;
-			};
+			button.style.setProperty('top', `${top}px`, 'important');
+			button.style.setProperty('left', `${finalLeft}px`, 'important');
 
-			let barrierX = scanBarrier(parent, inputRect);
-
-			if (parent.parentElement) {
-				const gpBarrier = scanBarrier(parent.parentElement, inputRect);
-				barrierX = Math.min(barrierX, gpBarrier);
+			if (input.style.boxSizing !== 'border-box') {
+				input.style.setProperty('box-sizing', 'border-box', 'important');
 			}
+			const targetPadding = rightIconOffset + iconWidth + rightMargin + 4;
 
-			const parentRect = parent.getBoundingClientRect();
-			const distFromParentRight = parentRect.right - barrierX;
-
-			const rightOffset = Math.max(8, distFromParentRight + 4);
-
-			button.style.setProperty(
-				'top',
-				`${inputRect.top - parentRect.top + inputRect.height / 2}px`,
-				'important',
-			);
-			button.style.setProperty('right', `${rightOffset}px`, 'important');
-
-			const buttonLeftGlobal = parentRect.right - rightOffset - 28;
-			const safepoint = buttonLeftGlobal - 4;
-
-			const requiredPadding = Math.max(0, inputRect.right - safepoint);
-
-			const currentComputed =
-				parseFloat(window.getComputedStyle(input).paddingRight) || 0;
-
-			if (Math.abs(currentComputed - requiredPadding) > 5) {
+			if (Math.abs(parseFloat(currentStyle.paddingRight) - targetPadding) > 1) {
 				input.style.setProperty(
 					'padding-right',
-					`${requiredPadding}px`,
+					`${targetPadding}px`,
 					'important',
 				);
-				lastAppliedPadding = requiredPadding;
+				lastAppliedPadding = targetPadding;
 			}
 		};
 
-		update();
+		const loop = () => {
+			if (isVisibleInViewport) {
+				update();
+			}
+			animationId = requestAnimationFrame(loop);
+		};
 
-		const resizeObserver = new ResizeObserver(() => update());
-		resizeObserver.observe(input);
+		const intersectionObserver = new IntersectionObserver(
+			(entries) => {
+				isVisibleInViewport = entries[0].isIntersecting;
+				if (isVisibleInViewport) {
+					update();
+				} else {
+					button.style.display = 'none';
+				}
+			},
+			{
+				threshold: 0,
+			},
+		);
+		intersectionObserver.observe(input);
 
-		if (parent) resizeObserver.observe(parent);
-
-		const mutationObserver = new MutationObserver(() => update());
-		mutationObserver.observe(parent, { childList: true, subtree: false });
+		animationId = requestAnimationFrame(loop);
 
 		return () => {
+			if (animationId) cancelAnimationFrame(animationId);
+			intersectionObserver.disconnect();
 			button.remove();
-			resizeObserver.disconnect();
-			mutationObserver.disconnect();
 			if (lastAppliedPadding > 0) {
 				input.style.removeProperty('padding-right');
 			}
-			if (needsRelative) {
-				parent.style.position = computedPosition;
+			if (originalBoxSizing !== 'border-box') {
+				input.style.removeProperty('box-sizing');
 			}
 		};
 	}
