@@ -19,76 +19,90 @@ export class AuthCryptoService {
 	private initPromise: Promise<void> | null = null;
 
 	private async ensureWorker() {
-		if (this.initPromise) return this.initPromise;
+		if (this.initPromise) {
+			try {
+				await this.initPromise;
+				if (this.worker) return;
+			} catch (e) {
+				this.initPromise = null;
+			}
+		}
 
 		this.initPromise = (async () => {
-			this.worker = this.workerFactory.create();
+			try {
+				this.worker = this.workerFactory.create();
 
-			this.worker.onmessage = ({
-				data,
-			}: MessageEvent<{
-				ok: boolean;
-				result?: any;
-				error?: string;
-				id: string;
-			}>) => {
-				const { ok, result, error } = data;
-				const pending = this.pendingRequests.get(data.id);
-				if (pending) {
-					clearTimeout(pending.timeoutId);
-					if (!ok) {
-						pending.reject(new Error(error));
-					} else {
-						pending.resolve(result);
+				this.worker.onmessage = ({
+					data,
+				}: MessageEvent<{
+					ok: boolean;
+					result?: any;
+					error?: string;
+					id: string;
+				}>) => {
+					const { ok, result, error } = data;
+					const pending = this.pendingRequests.get(data.id);
+					if (pending) {
+						clearTimeout(pending.timeoutId);
+						if (!ok) {
+							pending.reject(new Error(error));
+						} else {
+							pending.resolve(result);
+						}
+						this.pendingRequests.delete(data.id);
 					}
-					this.pendingRequests.delete(data.id);
-				}
-			};
+				};
 
-			this.worker.onerror = (err: ErrorEvent) => {
-				this.rejectAllPending(
-					new Error(`Crypto Worker crashed: ${err.message || 'Unknown error'}`),
-				);
-				this.terminate();
-			};
-
-			const area = await StorageCore.detectArea();
-			const storedKeys = await StorageCore.getMultiple(
-				[StorageCore.KEYS.VAULT_KEY],
-				area,
-			);
-
-			if (storedKeys[StorageCore.KEYS.VAULT_KEY]) {
-				const id = 'HYDRATE_' + crypto.randomUUID();
-				const hydrationPromise = new Promise<void>((resolve, reject) => {
-					const tId = setTimeout(
-						() => reject(new Error('Hydration timeout')),
-						5000,
+				this.worker.onerror = (err: ErrorEvent) => {
+					console.error('[AuthCryptoService] Worker error:', err);
+					this.rejectAllPending(
+						new Error(`Worker error: ${err.message || 'Check CSP'}`),
 					);
-					this.pendingRequests.set(id, {
-						resolve: () => {
-							clearTimeout(tId);
-							resolve();
-						},
-						reject: (err) => {
-							clearTimeout(tId);
-							reject(err);
-						},
-						timeoutId: tId,
+					this.terminate();
+				};
+
+				const area = await StorageCore.detectArea();
+				const storedKeys = await StorageCore.getMultiple(
+					[StorageCore.KEYS.VAULT_KEY],
+					area,
+				);
+
+				if (storedKeys[StorageCore.KEYS.VAULT_KEY]) {
+					if (!this.worker) throw new Error('Worker lost during init');
+					const id = 'HYDRATE_' + crypto.randomUUID();
+					const hydrationPromise = new Promise<void>((resolve, reject) => {
+						const tId = setTimeout(
+							() => reject(new Error('Hydration timeout')),
+							5000,
+						);
+						this.pendingRequests.set(id, {
+							resolve: () => {
+								clearTimeout(tId);
+								resolve();
+							},
+							reject: (err) => {
+								clearTimeout(tId);
+								reject(err);
+							},
+							timeoutId: tId,
+						});
 					});
-				});
 
-				this.worker.postMessage({
-					id,
-					payload: {
-						type: 'IMPORT_KEYS',
+					this.worker.postMessage({
+						id,
 						payload: {
-							vaultKeyB64: storedKeys[StorageCore.KEYS.VAULT_KEY],
+							type: 'IMPORT_KEYS',
+							payload: {
+								vaultKeyB64: storedKeys[StorageCore.KEYS.VAULT_KEY],
+							},
 						},
-					},
-				});
+					});
 
-				await hydrationPromise;
+					await hydrationPromise;
+				}
+			} catch (e) {
+				this.terminate();
+				throw e;
 			}
 		})();
 
@@ -254,8 +268,11 @@ export class AuthCryptoService {
 			}, 60000);
 
 			this.pendingRequests.set(id, { resolve, reject, timeoutId });
+
 			try {
-				this.worker!.postMessage(
+				if (!this.worker) throw new Error('Worker not available');
+
+				this.worker.postMessage(
 					{ id, payload: { type, payload } },
 					transfer || [],
 				);

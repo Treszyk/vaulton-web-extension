@@ -134,19 +134,28 @@ async function getCredentialsForDomain(
 			return { credentials: [], locked: false };
 		}
 
+		const mapRecord = (record: any) => ({
+			id: record.id,
+			title: record.title,
+			username: record.username,
+			password: record.password,
+			website: record.website,
+		});
+
+		if (!domain) {
+			return {
+				credentials: vault.map(mapRecord),
+				locked: false,
+			};
+		}
+
 		const normalized = getBaseDomain(domain);
 		const filtered = vault
 			.filter((record: any) => {
 				const recordDomain = getBaseDomain(record.website || '');
 				return recordDomain === normalized;
 			})
-			.map((record: any) => ({
-				id: record.id,
-				title: record.title,
-				username: record.username,
-				password: record.password,
-				website: record.website,
-			}));
+			.map(mapRecord);
 
 		return { credentials: filtered, locked: false };
 	} catch (e) {

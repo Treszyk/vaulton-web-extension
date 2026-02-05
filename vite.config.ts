@@ -15,9 +15,23 @@ export default defineConfig({
 		}),
 	],
 	base: './',
+	worker: {
+		format: 'es',
+		plugins: () => [
+			angular({
+				tsconfig: './tsconfig.json',
+				jit: false,
+			}),
+		],
+	},
 	build: {
 		outDir: 'dist',
 		emptyOutDir: true,
+		assetsInlineLimit: 0,
+		cssCodeSplit: false,
+		modulePreload: {
+			polyfill: false,
+		},
 		rollupOptions: {
 			input: {
 				popup: resolve(__dirname, 'src/popup/index.html'),

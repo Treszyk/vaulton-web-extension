@@ -1,6 +1,13 @@
 export function getBaseDomain(url: string): string {
+	if (!url) return '';
+
 	try {
-		const hostname = new URL(url).hostname.toLowerCase();
+		let workingUrl = url;
+		if (!url.includes('://')) {
+			workingUrl = 'https://' + url;
+		}
+
+		const hostname = new URL(workingUrl).hostname.toLowerCase();
 		const withoutWww = hostname.replace(/^www\./, '');
 
 		if (
