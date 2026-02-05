@@ -196,7 +196,11 @@ export class AuthCryptoService {
 			);
 
 			if (res.vaultKeyB64) {
-				await StorageCore.set('VaultKeyB64', res.vaultKeyB64, 'session');
+				await StorageCore.set(
+					StorageCore.KEYS.VAULT_KEY,
+					res.vaultKeyB64,
+					'session',
+				);
 			}
 		} finally {
 			if (pwdBytes) {
@@ -224,7 +228,7 @@ export class AuthCryptoService {
 	async clearKeys(): Promise<void> {
 		try {
 			await StorageCore.removeMultiple(
-				['VaultKeyB64', 'VaultSessionKey'],
+				[StorageCore.KEYS.VAULT_KEY, StorageCore.KEYS.VAULT_SESSION_KEY],
 				'session',
 			);
 			await this.postToWorker('CLEAR_KEYS', {});
