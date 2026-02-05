@@ -2,33 +2,32 @@ import { API_BASE_URL } from '../config';
 import { StorageCore } from '../core/storage/storage-core';
 import {
 	importVaultKeys,
-	decryptVaultEntry,
 	encryptVaultCache,
 	decryptVaultCache,
 	importSessionKey,
-	encryptVaultEntry,
+	decryptVaultRecord,
+	encryptVaultRecord,
+	ensureVaultSessionKey,
 } from '../core/crypto/crypto-core';
-import { bytesToB64 } from '../core/crypto/b64';
-import {
-	performAddRecord,
-	performUpdateRecord,
-} from '../core/vault/vault-operations';
+import { getBaseDomain } from '../core/utils/domain';
+import { apiLogin, apiLogout, apiRefresh } from '../core/api/auth-api.client';
+import { isTokenExpired } from '../core/auth/auth-utils';
 import { loadVault, saveVault } from '../core/vault/vault-storage';
+import {
+	apiCreateEntry,
+	apiPreCreateEntry,
+	apiUpdateEntry,
+} from '../core/api/vault-api.client';
 
 export class BackgroundAuthManager {
 	async syncVault(_force = false): Promise<boolean> {
 		const result = await this.trySyncVault();
 		if (result === 'unauthorized') {
-			console.log(
-				'[Background] Sync failed (401). Attempting token refresh...',
-			);
 			const refreshed = await this.refreshTokens();
 			if (refreshed) {
-				console.log('[Background] Refresh success. Retrying sync...');
 				const retry = await this.trySyncVault();
 				return retry === true;
 			} else {
-				console.log('[Background] Refresh failed. Session cleared.');
 				return false;
 			}
 		}
@@ -36,12 +35,15 @@ export class BackgroundAuthManager {
 	}
 
 	private async trySyncVault(): Promise<boolean | 'unauthorized'> {
-		const { AccessToken } = await StorageCore.getSmartMultiple(['AccessToken']);
+		const keys = StorageCore.KEYS;
+		const { AccessToken } = await StorageCore.getSmartMultiple([
+			keys.ACCESS_TOKEN,
+		]);
 		if (!AccessToken) return false;
 
-		const keys = await StorageCore.getSmartMultiple(['VaultKeyB64']);
+		const storageKeys = await StorageCore.getSmartMultiple([keys.VAULT_KEY]);
 
-		if (!keys.VaultKeyB64) return false;
+		if (!storageKeys[keys.VAULT_KEY]) return false;
 
 		try {
 			const response = await fetch(`${API_BASE_URL}/vault/entries`, {
@@ -59,24 +61,18 @@ export class BackgroundAuthManager {
 			if (!response.ok) return false;
 
 			const encryptedEntries = await response.json();
-			const { vaultKey } = await importVaultKeys(keys.VaultKeyB64);
+			const { vaultKey } = await importVaultKeys(storageKeys[keys.VAULT_KEY]);
 
 			const decryptedEntries: any[] = [];
 			for (const entry of encryptedEntries) {
 				try {
-					const aadB64 = bytesToB64(
-						new TextEncoder().encode(`vaulton:v-entry:${entry.Id}`),
-					);
-					const ptBuffer = await decryptVaultEntry(
+					const decrypted = await decryptVaultRecord(
 						vaultKey,
 						entry.Payload,
-						aadB64,
+						entry.Id,
 					);
-					const decrypted = JSON.parse(new TextDecoder().decode(ptBuffer));
 					decryptedEntries.push({ id: entry.Id, ...decrypted });
-				} catch (e) {
-					console.warn(`[Background] Failed to decrypt entry ${entry.Id}`, e);
-				}
+				} catch (e) {}
 			}
 
 			const sessionKey = await this.ensureSessionKey();
@@ -85,46 +81,20 @@ export class BackgroundAuthManager {
 				JSON.stringify(decryptedEntries),
 			);
 
-			await StorageCore.set('EncryptedVault', encryptedCache, 'local');
+			await StorageCore.set(keys.ENCRYPTED_VAULT, encryptedCache, 'local');
 			return true;
 		} catch (e) {
-			console.error('[Background] Sync error:', e);
 			return false;
 		}
 	}
 
 	private async ensureSessionKey(): Promise<CryptoKey> {
-		const stored = await StorageCore.get('VaultSessionKey', 'session');
-		if (stored) {
-			return importSessionKey(stored);
-		}
-
-		const key = await crypto.subtle.generateKey(
-			{ name: 'AES-GCM', length: 256 },
-			true,
-			['encrypt', 'decrypt'],
-		);
-
-		const exported = await crypto.subtle.exportKey('raw', key);
-		const b64 = bytesToB64(new Uint8Array(exported));
-
-		await StorageCore.set('VaultSessionKey', b64, 'session');
-		return key;
+		return ensureVaultSessionKey();
 	}
 
 	async startLogin(accountId: string, verifier: string): Promise<any> {
 		try {
-			const response = await fetch(`${API_BASE_URL}/auth/ext/login`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ AccountId: accountId, Verifier: verifier }),
-			});
-
-			if (!response.ok) {
-				throw new Error(`Login failed with status ${response.status}`);
-			}
-
-			const data = await response.json();
+			const data = await apiLogin(accountId, verifier);
 
 			await this.saveSession(
 				data.AccessToken,
@@ -148,7 +118,7 @@ export class BackgroundAuthManager {
 	async completeLogin(vaultKeyB64: string): Promise<boolean> {
 		try {
 			await StorageCore.setSmartMultiple({
-				VaultKeyB64: vaultKeyB64,
+				[StorageCore.KEYS.VAULT_KEY]: vaultKeyB64,
 			});
 			return true;
 		} catch (e) {
@@ -158,44 +128,30 @@ export class BackgroundAuthManager {
 	}
 
 	async refreshTokens(): Promise<boolean> {
+		const keys = StorageCore.KEYS;
 		const { RefreshToken, RefreshExpiresAt, VaultKeyB64 } =
 			await StorageCore.getSmartMultiple([
-				'RefreshToken',
-				'RefreshExpiresAt',
-				'VaultKeyB64',
+				keys.REFRESH_TOKEN,
+				keys.REFRESH_EXPIRES_AT,
+				keys.VAULT_KEY,
 			]);
 
-		if (!RefreshToken) {
-			if (VaultKeyB64) {
-				await this.clearSession();
-			}
+		const token = RefreshToken;
+		const expiresAt = RefreshExpiresAt;
+		const vaultKey = VaultKeyB64;
+
+		if (!token) {
+			if (vaultKey) await this.clearSession();
 			return false;
 		}
 
-		if (this.isTokenExpired(RefreshExpiresAt)) {
+		if (isTokenExpired(expiresAt)) {
 			await this.clearSession();
 			return false;
 		}
 
 		try {
-			const response = await fetch(`${API_BASE_URL}/auth/ext/refresh`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ RefreshToken: RefreshToken }),
-			});
-
-			if (!response.ok) {
-				if (
-					response.status === 400 ||
-					response.status === 401 ||
-					response.status === 403
-				) {
-					await this.clearSession();
-				}
-				return false;
-			}
-
-			const data = await response.json();
+			const data = await apiRefresh(RefreshToken);
 			await this.saveSession(
 				data.AccessToken,
 				data.RefreshToken,
@@ -209,27 +165,21 @@ export class BackgroundAuthManager {
 	}
 
 	async logout(): Promise<void> {
+		const keys = StorageCore.KEYS;
 		const { RefreshToken, RefreshExpiresAt } =
-			await StorageCore.getSmartMultiple(['RefreshToken', 'RefreshExpiresAt']);
+			await StorageCore.getSmartMultiple([
+				keys.REFRESH_TOKEN,
+				keys.REFRESH_EXPIRES_AT,
+			]);
 
-		if (RefreshToken && !this.isTokenExpired(RefreshExpiresAt)) {
+		if (RefreshToken && !isTokenExpired(RefreshExpiresAt)) {
 			try {
-				await fetch(`${API_BASE_URL}/auth/ext/logout`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ RefreshToken: RefreshToken }),
-				});
+				await apiLogout(RefreshToken);
 			} catch (e) {
-				console.warn('[Background] Logout fetch failed', e);
+				console.warn('[Background] Logout API failed', e);
 			}
 		}
 		await this.clearSession();
-	}
-
-	private isTokenExpired(expiresAt: string | null): boolean {
-		if (!expiresAt) return true;
-		const expiry = new Date(expiresAt).getTime();
-		return Date.now() >= expiry - 30000;
 	}
 
 	public async saveSession(
@@ -241,52 +191,50 @@ export class BackgroundAuthManager {
 		const area = await StorageCore.detectArea();
 		const otherArea = area === 'local' ? 'session' : 'local';
 
+		const keys = StorageCore.KEYS;
 		const data = {
-			AccessToken: accessToken,
-			RefreshToken: refreshToken,
-			RefreshExpiresAt: refreshExpiresAt,
+			[keys.ACCESS_TOKEN]: accessToken,
+			[keys.REFRESH_TOKEN]: refreshToken,
+			[keys.REFRESH_EXPIRES_AT]: refreshExpiresAt,
 		};
 
 		await StorageCore.setMultiple(data, area);
 		await StorageCore.removeMultiple(
-			['AccessToken', 'RefreshToken', 'RefreshExpiresAt'],
+			[keys.ACCESS_TOKEN, keys.REFRESH_TOKEN, keys.REFRESH_EXPIRES_AT],
 			otherArea,
 		);
 
 		if (accountId) {
-			await StorageCore.set('AccountId', accountId, 'local');
+			await StorageCore.set(keys.ACCOUNT_ID, accountId, 'local');
 		}
 	}
 
 	public async clearSession(): Promise<void> {
-		const keys = [
-			'AccessToken',
-			'RefreshToken',
-			'RefreshExpiresAt',
-			'VaultKeyB64',
-			'VaultSessionKey',
-			'EncryptedVault',
-			'PendingSavePrompts',
-		];
+		const keys = Object.values(StorageCore.KEYS);
 		console.log('[Background] Clearing session keys and tokens...');
 		await StorageCore.removeMultiple(keys, 'session');
 		await StorageCore.removeMultiple(keys, 'local');
 	}
 
 	public async resetLockTimer(): Promise<void> {
-		const strategy = await StorageCore.get('LockoutStrategy', 'local');
+		const strategy = await StorageCore.get(
+			StorageCore.KEYS.LOCKOUT_STRATEGY,
+			'local',
+		);
 
 		await chrome.alarms.clear('auto-lock');
 
 		const minutes = parseInt(strategy);
 		if (!isNaN(minutes) && minutes > 0) {
 			chrome.alarms.create('auto-lock', { delayInMinutes: minutes });
-			console.log(`[Background] Auto-lock timer reset: ${minutes} minutes`);
 		}
 	}
 
 	public async isLocked(): Promise<boolean> {
-		const sessionKey = await StorageCore.get('VaultSessionKey', 'session');
+		const sessionKey = await StorageCore.get(
+			StorageCore.KEYS.VAULT_SESSION_KEY,
+			'session',
+		);
 		return !sessionKey;
 	}
 
@@ -295,16 +243,19 @@ export class BackgroundAuthManager {
 		username: string,
 		password: string,
 	): Promise<void> {
-		const { AccessToken } = await StorageCore.getSmartMultiple(['AccessToken']);
+		const keys = StorageCore.KEYS;
+		const { AccessToken } = await StorageCore.getSmartMultiple([
+			keys.ACCESS_TOKEN,
+		]);
 		if (!AccessToken) throw new Error('Not authenticated');
 
-		const keys = await StorageCore.getSmartMultiple(['VaultKeyB64']);
-		if (!keys.VaultKeyB64) {
+		const storageKeys = await StorageCore.getSmartMultiple([keys.VAULT_KEY]);
+		if (!storageKeys[keys.VAULT_KEY]) {
 			throw new Error('Vault keys not available');
 		}
 
 		const vault = (await loadVault()) || [];
-		const baseDomain = domain.toLowerCase().replace(/^www\./, '');
+		const baseDomain = getBaseDomain(domain);
 		const existingRecord = vault.find(
 			(r: any) =>
 				(r.website === baseDomain || r.title === baseDomain) &&
@@ -321,41 +272,23 @@ export class BackgroundAuthManager {
 			lastModified: Date.now(),
 		};
 
-		const cryptoAdapter = {
-			encryptEntry: async (payload: any, aad: string) => {
-				const { vaultKey } = await importVaultKeys(keys.VaultKeyB64);
-
-				const aadB64 = bytesToB64(
-					new TextEncoder().encode(`vaulton:v-entry:${aad}`),
-				);
-				const dto = await encryptVaultEntry(
-					vaultKey,
-					new TextEncoder().encode(JSON.stringify(payload)).buffer,
-					aadB64,
-				);
-				return dto;
-			},
-		};
-
-		let entryId: string;
+		const { vaultKey } = await importVaultKeys(storageKeys[keys.VAULT_KEY]);
+		const entryId = existingRecord
+			? existingRecord.id
+			: (await apiPreCreateEntry()).EntryId;
+		const encrypted = await encryptVaultRecord(vaultKey, recordData, entryId);
 
 		if (existingRecord) {
-			await performUpdateRecord(cryptoAdapter, existingRecord.id, recordData);
-			entryId = existingRecord.id;
+			await apiUpdateEntry(entryId, { Payload: encrypted.Payload });
 		} else {
-			entryId = await performAddRecord(cryptoAdapter, recordData);
+			await apiCreateEntry({ EntryId: entryId, Payload: encrypted.Payload });
 		}
 
 		if (existingRecord) {
 			const index = vault.findIndex((r: any) => r.id === entryId);
-			if (index !== -1) {
-				vault[index] = { ...vault[index], ...recordData };
-			}
+			if (index !== -1) vault[index] = { ...vault[index], ...recordData };
 		} else {
-			vault.push({
-				id: entryId,
-				...recordData,
-			});
+			vault.push({ id: entryId, ...recordData });
 		}
 
 		await saveVault(vault);
@@ -363,32 +296,34 @@ export class BackgroundAuthManager {
 
 	public async setPendingSavePrompt(domain: string, data: any): Promise<void> {
 		if (await this.isLocked()) return;
-		console.log('[Background] setPendingSavePrompt for:', domain);
-		const sessionKeyB64 = await StorageCore.get('VaultSessionKey', 'session');
-		if (!sessionKeyB64) {
-			console.warn('[Background] Cannot set pending: No session key');
-			return;
-		}
+
+		const keys = StorageCore.KEYS;
+		const sessionKeyB64 = await StorageCore.get(
+			keys.VAULT_SESSION_KEY,
+			'session',
+		);
+		if (!sessionKeyB64) return;
 
 		const sessionKey = await importSessionKey(sessionKeyB64);
 		const encrypted = await encryptVaultCache(sessionKey, JSON.stringify(data));
 
 		const allPending =
-			(await StorageCore.get('PendingSavePrompts', 'local')) || {};
+			(await StorageCore.get(keys.PENDING_SAVE, 'local')) || {};
 		allPending[domain.toLowerCase()] = encrypted;
 
-		await StorageCore.set('PendingSavePrompts', allPending, 'local');
+		await StorageCore.set(keys.PENDING_SAVE, allPending, 'local');
 	}
 
 	public async getPendingSavePrompt(domain: string): Promise<any | null> {
-		const allPending = await StorageCore.get('PendingSavePrompts', 'local');
-		if (!allPending || !allPending[domain.toLowerCase()]) {
-			return null;
-		}
+		const keys = StorageCore.KEYS;
+		const allPending = await StorageCore.get(keys.PENDING_SAVE, 'local');
+		if (!allPending || !allPending[domain.toLowerCase()]) return null;
 
-		console.log('[Background] getPendingSavePrompt found data for:', domain);
 		const encrypted = allPending[domain.toLowerCase()];
-		const sessionKeyB64 = await StorageCore.get('VaultSessionKey', 'session');
+		const sessionKeyB64 = await StorageCore.get(
+			keys.VAULT_SESSION_KEY,
+			'session',
+		);
 		if (!sessionKeyB64) return null;
 
 		try {
@@ -396,16 +331,16 @@ export class BackgroundAuthManager {
 			const decrypted = await decryptVaultCache(sessionKey, encrypted);
 			return JSON.parse(decrypted);
 		} catch (e) {
-			console.error('[Background] Failed to decrypt pending prompt:', e);
 			return null;
 		}
 	}
 
 	public async clearPendingSavePrompt(domain: string): Promise<void> {
-		const allPending = await StorageCore.get('PendingSavePrompts', 'local');
+		const key = StorageCore.KEYS.PENDING_SAVE;
+		const allPending = await StorageCore.get(key, 'local');
 		if (allPending && allPending[domain.toLowerCase()]) {
 			delete allPending[domain.toLowerCase()];
-			await StorageCore.set('PendingSavePrompts', allPending, 'local');
+			await StorageCore.set(key, allPending, 'local');
 		}
 	}
 }

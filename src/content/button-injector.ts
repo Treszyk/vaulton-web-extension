@@ -1,5 +1,3 @@
-import { resetAutoLockTimer } from './activity-tracker';
-
 export interface VaultonButton {
 	element: HTMLElement;
 	input: HTMLInputElement;
@@ -85,7 +83,6 @@ export class ButtonInjector {
 		button.addEventListener('click', (e) => {
 			e.stopPropagation();
 			e.preventDefault();
-			resetAutoLockTimer();
 			onClick();
 		});
 

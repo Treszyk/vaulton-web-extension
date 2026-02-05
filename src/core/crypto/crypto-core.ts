@@ -1,4 +1,5 @@
 import { bytesToB64, b64ToBytes } from './b64';
+import { StorageCore } from '../storage/storage-core';
 import { zeroize } from './zeroize';
 import { encryptSplit } from './aesgcm-split';
 import { hkdfAesGcm256Key, hkdfVerifierB64 } from './hkdf';
@@ -62,13 +63,15 @@ export async function deriveVaultKeys(
 	}
 }
 
-export async function encryptVaultEntry(
+export async function encryptVaultRecord<T = any>(
 	vaultKey: CryptoKey,
-	plaintextBuffer: ArrayBuffer,
-	aadB64: string,
+	input: T,
+	entryId: string,
 ): Promise<{ Payload: EncryptedValueDto }> {
-	const ptBytes = new Uint8Array(plaintextBuffer);
-	const aad = b64ToBytes(aadB64);
+	const aadStr = `vaulton:v-entry:${entryId}`;
+	const aad = b64ToBytes(bytesToB64(new TextEncoder().encode(aadStr)));
+	const json = JSON.stringify(input);
+	const ptBytes = new Uint8Array(new TextEncoder().encode(json));
 
 	try {
 		const split = await encryptSplit(vaultKey, ptBytes, aad);
@@ -96,15 +99,16 @@ export async function encryptVaultEntry(
 	}
 }
 
-export async function decryptVaultEntry(
+export async function decryptVaultRecord<T = any>(
 	vaultKey: CryptoKey,
 	dto: EncryptedValueDto,
-	aadB64: string,
-): Promise<ArrayBuffer> {
+	entryId: string,
+): Promise<T> {
+	const aadStr = `vaulton:v-entry:${entryId}`;
 	const nonce = b64ToBytes(dto.Nonce);
 	const ct = b64ToBytes(dto.CipherText);
 	const tag = b64ToBytes(dto.Tag);
-	const aad = b64ToBytes(aadB64);
+	const aad = b64ToBytes(bytesToB64(new TextEncoder().encode(aadStr)));
 
 	let ctTag: Uint8Array | null = null;
 
@@ -123,7 +127,8 @@ export async function decryptVaultEntry(
 			ctTag as BufferSource,
 		);
 
-		return ptBuf;
+		const json = new TextDecoder().decode(ptBuf);
+		return JSON.parse(json) as T;
 	} finally {
 		zeroize(nonce);
 		zeroize(ct);
@@ -286,4 +291,26 @@ export async function importSessionKey(keyB64: string): Promise<CryptoKey> {
 	} finally {
 		zeroize(raw);
 	}
+}
+
+export async function ensureVaultSessionKey(): Promise<CryptoKey> {
+	const stored = await StorageCore.get(
+		StorageCore.KEYS.VAULT_SESSION_KEY,
+		'session',
+	);
+	if (stored) {
+		return importSessionKey(stored);
+	}
+
+	const key = await crypto.subtle.generateKey(
+		{ name: 'AES-GCM', length: 256 },
+		true,
+		['encrypt', 'decrypt'],
+	);
+
+	const exported = await crypto.subtle.exportKey('raw', key);
+	const b64 = bytesToB64(new Uint8Array(exported));
+
+	await StorageCore.set(StorageCore.KEYS.VAULT_SESSION_KEY, b64, 'session');
+	return key;
 }

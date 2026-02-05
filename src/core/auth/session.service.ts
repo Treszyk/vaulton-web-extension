@@ -1,8 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
-
 import { StorageCore } from '../storage/storage-core';
 import { AuthCryptoService } from './auth-crypto.service';
-import { BackgroundAction, BackgroundResponse } from '../messaging';
+import { sendCommand } from '../messaging';
 import { fetchClient } from '../api/fetch-client';
 import { apiPreLogin } from '../api/auth-api.client';
 import { API_BASE_URL } from '../../config';
@@ -30,27 +29,30 @@ export class SessionService {
 	}
 
 	private async syncStateFromStorage(): Promise<void> {
-		const local = await StorageCore.getMultiple(
-			['AccountId', 'LockoutStrategy'],
-			'local',
+		const localList = [
+			StorageCore.KEYS.ACCOUNT_ID,
+			StorageCore.KEYS.LOCKOUT_STRATEGY,
+		];
+		const local = await StorageCore.getMultiple(localList, 'local');
+		this.accountId.set(local[StorageCore.KEYS.ACCOUNT_ID] || null);
+		this.lockoutStrategy.set(
+			local[StorageCore.KEYS.LOCKOUT_STRATEGY] || 'OnQuit',
 		);
-		this.accountId.set(local['AccountId'] || null);
-		this.lockoutStrategy.set(local['LockoutStrategy'] || 'OnQuit');
 
-		const data = await StorageCore.getSmartMultiple([
-			'AccessToken',
-			'VaultKeyB64',
-		]);
+		const smartList = [
+			StorageCore.KEYS.ACCESS_TOKEN,
+			StorageCore.KEYS.VAULT_KEY,
+		];
+		const data = await StorageCore.getSmartMultiple(smartList);
 
-		this.isAuthenticated.set(!!data['AccessToken']);
-		this.isLocked.set(!data['VaultKeyB64']);
+		this.isAuthenticated.set(!!data[StorageCore.KEYS.ACCESS_TOKEN]);
+		this.isLocked.set(!data[StorageCore.KEYS.VAULT_KEY]);
 	}
 
 	async tryRestore(): Promise<void> {
 		await this.syncStateFromStorage();
 		if (this.isAuthenticated()) {
 			try {
-				// apiMe uses fetchClient, so it auto-refreshes if needed
 				await fetchClient(`${API_BASE_URL}/auth/me`);
 			} catch (e) {
 				await this.logout();
@@ -60,15 +62,11 @@ export class SessionService {
 
 	async login(accountId: string, password: string): Promise<void> {
 		const preLogin = await apiPreLogin(accountId);
-
 		const { verifier } = await this.crypto.buildLogin(password, preLogin);
 
-		const startRes = await this.sendCommand({
+		const startRes = await sendCommand({
 			type: 'LOGIN_START',
-			payload: {
-				accountId,
-				verifier,
-			},
+			payload: { accountId, verifier },
 		});
 
 		if (!startRes.success || !startRes.data) {
@@ -81,42 +79,32 @@ export class SessionService {
 			startRes.data.AccountId,
 		);
 
-		const completeRes = await this.sendCommand({
-			type: 'LOGIN_COMPLETE',
-			payload: {
-				vaultKeyB64,
-			},
-		});
-
-		if (!completeRes.success) {
-			throw new Error(completeRes.error || 'Login completion failed');
-		}
-
+		await sendCommand({ type: 'LOGIN_COMPLETE', payload: { vaultKeyB64 } });
 		await this.syncStateFromStorage();
 	}
 
 	async logout(): Promise<void> {
-		await this.sendCommand({ type: 'LOGOUT' });
+		await sendCommand({ type: 'LOGOUT' });
 		await this.syncStateFromStorage();
 	}
 
 	async refresh(): Promise<void> {
-		const res = await this.sendCommand({ type: 'REFRESH' });
+		const res = await sendCommand({ type: 'REFRESH' });
 		if (!res.success) throw new Error(res.error);
 		await this.syncStateFromStorage();
 	}
 
 	async setLockoutStrategy(strategy: string): Promise<void> {
 		const oldArea = await StorageCore.detectArea();
-		await StorageCore.set('LockoutStrategy', strategy, 'local');
+		await StorageCore.set(StorageCore.KEYS.LOCKOUT_STRATEGY, strategy, 'local');
 		const newArea = await StorageCore.detectArea();
 
 		if (oldArea !== newArea && this.isAuthenticated()) {
 			const keys = [
-				'AccessToken',
-				'RefreshToken',
-				'RefreshExpiresAt',
-				'VaultKeyB64',
+				StorageCore.KEYS.ACCESS_TOKEN,
+				StorageCore.KEYS.REFRESH_TOKEN,
+				StorageCore.KEYS.REFRESH_EXPIRES_AT,
+				StorageCore.KEYS.VAULT_KEY,
 			];
 			const data = await StorageCore.getMultiple(keys, oldArea);
 			await StorageCore.setMultiple(data, newArea);
@@ -128,11 +116,5 @@ export class SessionService {
 
 	async checkVaultStatus(): Promise<void> {
 		await this.syncStateFromStorage();
-	}
-
-	private sendCommand(action: BackgroundAction): Promise<BackgroundResponse> {
-		return new Promise((resolve) => {
-			chrome.runtime.sendMessage(action, (res) => resolve(res));
-		});
 	}
 }

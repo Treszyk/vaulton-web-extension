@@ -50,3 +50,11 @@ export interface BackgroundResponse<T = any> {
 	data?: T;
 	error?: string;
 }
+
+export function sendCommand<T = any>(
+	action: BackgroundAction,
+): Promise<BackgroundResponse<T>> {
+	return new Promise((resolve) => {
+		chrome.runtime.sendMessage(action, (res) => resolve(res));
+	});
+}

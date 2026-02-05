@@ -4,6 +4,18 @@ export const browserApi: any =
 	(globalThis as any).browser || (globalThis as any).chrome;
 
 export class StorageCore {
+	static readonly KEYS = {
+		ACCESS_TOKEN: 'AccessToken',
+		REFRESH_TOKEN: 'RefreshToken',
+		REFRESH_EXPIRES_AT: 'RefreshExpiresAt',
+		VAULT_KEY: 'VaultKeyB64',
+		VAULT_SESSION_KEY: 'VaultSessionKey',
+		ACCOUNT_ID: 'AccountId',
+		LOCKOUT_STRATEGY: 'LockoutStrategy',
+		ENCRYPTED_VAULT: 'EncryptedVault',
+		PENDING_SAVE: 'PendingSavePrompts',
+	};
+
 	static async get(key: string, area: StorageArea = 'session'): Promise<any> {
 		const result = await this.execute('get', area, [key]);
 		return result ? result[key] : undefined;
@@ -74,6 +86,11 @@ export class StorageCore {
 	static async setSmartMultiple(items: { [key: string]: any }): Promise<void> {
 		const area = await this.detectArea();
 		await this.setMultiple(items, area);
+	}
+
+	static async removeSmartMultiple(keys: string[]): Promise<void> {
+		const area = await this.detectArea();
+		await this.removeMultiple(keys, area);
 	}
 
 	static async detectArea(): Promise<StorageArea> {

@@ -4,8 +4,22 @@ import { CredentialPicker, CredentialOption } from './credential-picker';
 import { AutofillEngine } from './autofill-engine';
 import { browserApi } from '../core/storage/storage-core';
 import { SavePrompt } from './save-prompt';
-import { getBaseDomain } from './domain-utils';
+import { getBaseDomain } from '../core/utils/domain';
 import { generateSecurePassword } from '../core/crypto/password-utils';
+
+let lastResetTime = 0;
+const THROTTLE_MS = 30000;
+
+export function resetAutoLockTimer(): void {
+	const now = Date.now();
+	if (now - lastResetTime < THROTTLE_MS) return;
+
+	lastResetTime = now;
+	browserApi.runtime.sendMessage({ type: 'RESET_TIMER' }).catch(() => {});
+}
+
+document.addEventListener('mousedown', resetAutoLockTimer);
+document.addEventListener('keydown', resetAutoLockTimer);
 
 console.log('[Vaulton] Content script initialized');
 
@@ -16,12 +30,7 @@ const autofillEngine = new AutofillEngine();
 const savePrompt = new SavePrompt();
 
 function extractDomain(url: string): string {
-	try {
-		const urlObj = new URL(url);
-		return urlObj.hostname;
-	} catch {
-		return '';
-	}
+	return getBaseDomain(url);
 }
 
 async function fetchCredentials(

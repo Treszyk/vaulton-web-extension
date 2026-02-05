@@ -1,4 +1,4 @@
-import { resetAutoLockTimer } from './activity-tracker';
+import { escapeHtml } from './dom-utils';
 
 export interface CredentialOption {
 	id: string;
@@ -255,7 +255,7 @@ export class CredentialPicker {
 					Credentials for
 				</div>
 				<div style="color: white; font-size: 13px; font-weight: 600;">
-					${this.escapeHtml(domain)} ${count > 0 ? `(${count})` : ''}
+					${escapeHtml(domain)} ${count > 0 ? `(${count})` : ''}
 				</div>
 			</div>
 		`;
@@ -365,10 +365,10 @@ export class CredentialPicker {
 
 		item.innerHTML = `
 			<div style="color: white; font-size: 14px; font-weight: 600; margin-bottom: 2px;">
-				${this.escapeHtml(cred.title)}
+				${escapeHtml(cred.title)}
 			</div>
 			<div style="color: #a1a1aa; font-size: 12px;">
-				${this.escapeHtml(cred.username)}
+				${escapeHtml(cred.username)}
 			</div>
 		`;
 
@@ -382,7 +382,6 @@ export class CredentialPicker {
 
 		item.addEventListener('click', (e) => {
 			e.stopPropagation();
-			resetAutoLockTimer();
 			onSelect(cred);
 			this.hide();
 		});
@@ -429,11 +428,5 @@ export class CredentialPicker {
 			'important',
 		);
 		picker.style.setProperty('width', `${rect.width}px`, 'important');
-	}
-
-	private escapeHtml(text: string): string {
-		const div = document.createElement('div');
-		div.textContent = text;
-		return div.innerHTML;
 	}
 }

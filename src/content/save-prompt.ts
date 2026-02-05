@@ -1,4 +1,4 @@
-import { resetAutoLockTimer } from './activity-tracker';
+import { escapeHtml } from './dom-utils';
 
 export type SaveAction = 'save' | 'update' | 'never' | 'not-now';
 
@@ -36,8 +36,8 @@ export class SavePrompt {
 		const title = action === 'save' ? 'Save Password?' : 'Update Password?';
 		const message =
 			action === 'save'
-				? `Save credentials for <strong>${this.escapeHtml(domain)}</strong>?`
-				: `Update password for <strong>${this.escapeHtml(username)}</strong> on <strong>${this.escapeHtml(domain)}</strong>?`;
+				? `Save credentials for <strong>${escapeHtml(domain)}</strong>?`
+				: `Update password for <strong>${escapeHtml(username)}</strong> on <strong>${escapeHtml(domain)}</strong>?`;
 
 		prompt.innerHTML = `
 			<div style="margin-bottom: 12px;">
@@ -132,13 +132,11 @@ export class SavePrompt {
 		});
 
 		saveBtn.addEventListener('click', () => {
-			resetAutoLockTimer();
 			onAction(action);
 			this.hide();
 		});
 
 		neverBtn.addEventListener('click', () => {
-			resetAutoLockTimer();
 			onAction('never');
 			this.hide();
 		});
@@ -165,11 +163,5 @@ export class SavePrompt {
 			clearTimeout(this.timeoutId);
 			this.timeoutId = null;
 		}
-	}
-
-	private escapeHtml(text: string): string {
-		const div = document.createElement('div');
-		div.textContent = text;
-		return div.innerHTML;
 	}
 }

@@ -1,15 +1,10 @@
 import { fetchClient } from './fetch-client';
 import { API_BASE_URL } from '../../config';
-
-export interface EncryptedValue {
-	Nonce: string;
-	CipherText: string;
-	Tag: string;
-}
+import { EncryptedValueDto } from '../crypto/worker/crypto.worker.types';
 
 export interface EntryDto {
 	Id: string;
-	Payload: EncryptedValue;
+	Payload: EncryptedValueDto;
 }
 
 export interface PreCreateEntryResponse {
@@ -18,11 +13,11 @@ export interface PreCreateEntryResponse {
 
 export interface CreateVaultEntryRequest {
 	EntryId: string;
-	Payload: EncryptedValue;
+	Payload: EncryptedValueDto;
 }
 
 export interface UpdateVaultEntryRequest {
-	Payload: EncryptedValue;
+	Payload: EncryptedValueDto;
 }
 
 const BASE_URL = `${API_BASE_URL}/vault/entries`;

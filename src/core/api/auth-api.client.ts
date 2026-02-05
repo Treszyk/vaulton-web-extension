@@ -12,6 +12,7 @@ export interface ExtLoginResponse {
 	RefreshExpiresAt: string;
 	MkWrapPwd: any;
 	MkWrapRk: any;
+	CryptoSchemaVer: number;
 }
 
 export interface ExtRefreshResponse {
@@ -36,6 +37,14 @@ async function handleResponse<T>(res: Response): Promise<T> {
 	}
 	const json = await res.json();
 	return json as T;
+}
+
+export async function apiPreRegister(): Promise<any> {
+	const res = await fetch(`${API_BASE_URL}/auth/pre-register`, {
+		method: 'POST',
+	});
+	if (!res.ok) throw new Error(`Pre-register failed: ${res.status}`);
+	return res.json();
 }
 
 export async function apiPreLogin(
@@ -70,6 +79,7 @@ export async function apiLogin(
 		RefreshExpiresAt: data.RefreshExpiresAt ?? data.refreshExpiresAt,
 		MkWrapPwd: normalizeEnc(data.MkWrapPwd ?? data.mkWrapPwd),
 		MkWrapRk: normalizeEnc(data.MkWrapRk ?? data.mkWrapRk),
+		CryptoSchemaVer: data.CryptoSchemaVer ?? data.cryptoSchemaVer ?? 1,
 	};
 }
 

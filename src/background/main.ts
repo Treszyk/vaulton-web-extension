@@ -3,7 +3,9 @@ import { BackgroundAuthManager } from './auth-manager';
 import { browserApi } from '../core/storage/storage-core';
 import { BackgroundAction, BackgroundResponse } from '../core/messaging';
 import { loadVault } from '../core/vault/vault-storage';
-import { API_BASE_URL } from '../config';
+import { apiPreRegister } from '../core/api/auth-api.client';
+import { getBaseDomain } from '../core/utils/domain';
+import { StorageCore } from '../core/storage/storage-core';
 
 const auth = new BackgroundAuthManager();
 
@@ -25,35 +27,30 @@ browserApi.alarms.onAlarm.addListener((alarm: any) => {
 });
 
 browserApi.storage.onChanged.addListener((changes: { [key: string]: any }) => {
-	if (changes['AccessToken'] && !changes['AccessToken'].newValue) {
-		if (changes['RefreshToken'] && !changes['RefreshToken'].newValue) {
+	const keys = StorageCore.KEYS;
+	if (changes[keys.ACCESS_TOKEN] && !changes[keys.ACCESS_TOKEN].newValue) {
+		if (changes[keys.REFRESH_TOKEN] && !changes[keys.REFRESH_TOKEN].newValue) {
 			return;
 		}
 		auth.refreshTokens();
 	}
 
-	if (changes['LockoutStrategy']) {
-		console.log(
-			`[Background] LockoutStrategy changed: ${changes['LockoutStrategy'].newValue}`,
-		);
+	if (changes[keys.LOCKOUT_STRATEGY]) {
 		auth.resetLockTimer();
 	}
 
-	if (changes['VaultKeyB64'] && !changes['VaultKeyB64'].newValue) {
-		const newToken = changes['AccessToken']?.newValue;
-		if (newToken) {
-			return;
-		}
+	if (changes[keys.VAULT_KEY] && !changes[keys.VAULT_KEY].newValue) {
+		const newToken = changes[keys.ACCESS_TOKEN]?.newValue;
+		if (newToken) return;
 		auth.isLocked().then((locked) => {
-			if (!locked) {
-				console.warn('[Background] VaultKey lost! Locking...');
-				auth.clearSession();
-			}
+			if (!locked) auth.clearSession();
 		});
 	}
 
-	if (changes['VaultSessionKey'] && !changes['VaultSessionKey'].newValue) {
-		console.warn('[Background] Session Key lost! Restoring...');
+	if (
+		changes[StorageCore.KEYS.VAULT_SESSION_KEY] &&
+		!changes[StorageCore.KEYS.VAULT_SESSION_KEY].newValue
+	) {
 		auth.syncVault();
 	}
 });
@@ -137,15 +134,11 @@ async function getCredentialsForDomain(
 			return { credentials: [], locked: false };
 		}
 
-		const normalized = domain.toLowerCase().replace(/^www\./, '');
+		const normalized = getBaseDomain(domain);
 		const filtered = vault
 			.filter((record: any) => {
-				const recordDomain = (record.website || '')
-					.toLowerCase()
-					.replace(/^www\./, '');
-				return (
-					recordDomain.includes(normalized) || normalized.includes(recordDomain)
-				);
+				const recordDomain = getBaseDomain(record.website || '');
+				return recordDomain === normalized;
 			})
 			.map((record: any) => ({
 				id: record.id,
@@ -177,16 +170,10 @@ async function checkCredentialExists(
 			return { action: 'save' };
 		}
 
-		const baseDomain = domain.toLowerCase().replace(/^www\./, '');
+		const baseDomain = getBaseDomain(domain);
 
 		const domainRecords = vault.filter((record: any) => {
-			const recordDomain = (record.website || '')
-				.toLowerCase()
-				.replace(/^www\./, '');
-			const parts = recordDomain.split('.');
-			const recordBase =
-				parts.length > 1 ? parts.slice(-2).join('.') : recordDomain;
-			return recordBase === baseDomain || recordDomain === baseDomain;
+			return getBaseDomain(record.website || '') === baseDomain;
 		});
 
 		const existingRecord = domainRecords.find(
@@ -222,9 +209,5 @@ async function saveCredential(
 }
 
 async function preRegister(): Promise<any> {
-	const response = await fetch(`${API_BASE_URL}/auth/pre-register`, {
-		method: 'POST',
-	});
-	if (!response.ok) throw new Error(`Pre-register failed: ${response.status}`);
-	return response.json();
+	return apiPreRegister();
 }

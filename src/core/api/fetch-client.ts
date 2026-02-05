@@ -1,23 +1,18 @@
 import { StorageCore } from '../storage/storage-core';
 import { apiRefresh } from './auth-api.client';
+import { isTokenExpired } from '../auth/auth-utils';
 
 let refreshPromise: Promise<string> | null = null;
-
-async function getTokens() {
-	const area = await StorageCore.detectArea();
-	return StorageCore.getMultiple(['AccessToken', 'RefreshToken'], area);
-}
 
 export async function fetchClient<T>(
 	url: string,
 	options: RequestInit = {},
 ): Promise<T> {
-	const sentTokens = await getTokens();
-	let token = sentTokens['AccessToken'];
+	const accessToken = await StorageCore.getSmart(StorageCore.KEYS.ACCESS_TOKEN);
 
 	const headers = new Headers(options.headers || {});
-	if (token) {
-		headers.set('Authorization', `Bearer ${token}`);
+	if (accessToken) {
+		headers.set('Authorization', `Bearer ${accessToken}`);
 	}
 	if (
 		!headers.has('Content-Type') &&
@@ -31,47 +26,42 @@ export async function fetchClient<T>(
 	let response = await fetch(url, config);
 
 	if (response.status === 401) {
-		const currentTokens = await getTokens();
-		if (!currentTokens['RefreshToken']) {
-			throw new Error('Unauthorized');
-		}
-
-		function isTokenExpired(expiresAt: string | null): boolean {
-			if (!expiresAt) return true;
-			const expiry = new Date(expiresAt).getTime();
-			return Date.now() >= expiry - 30000;
+		const refreshToken = await StorageCore.getSmart(
+			StorageCore.KEYS.REFRESH_TOKEN,
+		);
+		if (!refreshToken) {
+			throw new Error('Session expired');
 		}
 
 		if (!refreshPromise) {
 			refreshPromise = (async () => {
+				const keys = StorageCore.KEYS;
 				try {
-					const { RefreshToken, RefreshExpiresAt } = currentTokens;
+					const refreshExpiresAt = await StorageCore.getSmart(
+						keys.REFRESH_EXPIRES_AT,
+					);
 
-					if (isTokenExpired(RefreshExpiresAt)) {
+					if (isTokenExpired(refreshExpiresAt)) {
 						console.warn(
 							'Local Refresh check: Token expired. Skipping API call.',
 						);
 						throw new Error('Session expired locally');
 					}
 
-					const res = await apiRefresh(RefreshToken);
-					const area = await StorageCore.detectArea();
-					await StorageCore.setMultiple(
-						{
-							AccessToken: res.AccessToken,
-							RefreshToken: res.RefreshToken,
-							RefreshExpiresAt: res.RefreshExpiresAt,
-						},
-						area,
-					);
-					return res.AccessToken;
+					const refreshRes = await apiRefresh(refreshToken);
+					await StorageCore.setSmartMultiple({
+						[keys.ACCESS_TOKEN]: refreshRes.AccessToken,
+						[keys.REFRESH_TOKEN]: refreshRes.RefreshToken,
+						[keys.REFRESH_EXPIRES_AT]: refreshRes.RefreshExpiresAt,
+					});
+					return refreshRes.AccessToken;
 				} catch (e) {
 					console.error('Refresh failed', e);
-					const area = await StorageCore.detectArea();
-					await StorageCore.removeMultiple(
-						['AccessToken', 'RefreshToken', 'VaultKeyB64'],
-						area,
-					);
+					await StorageCore.removeSmartMultiple([
+						keys.ACCESS_TOKEN,
+						keys.REFRESH_TOKEN,
+						keys.VAULT_KEY,
+					]);
 					throw e;
 				} finally {
 					refreshPromise = null;

@@ -53,12 +53,12 @@ export class AuthCryptoService {
 			};
 
 			const area = await StorageCore.detectArea();
-			const storedKeys = (await StorageCore.getMultiple(
-				['VaultKeyB64'],
+			const storedKeys = await StorageCore.getMultiple(
+				[StorageCore.KEYS.VAULT_KEY],
 				area,
-			)) as { VaultKeyB64?: string };
+			);
 
-			if (storedKeys['VaultKeyB64']) {
+			if (storedKeys[StorageCore.KEYS.VAULT_KEY]) {
 				const id = 'HYDRATE_' + crypto.randomUUID();
 				const hydrationPromise = new Promise<void>((resolve, reject) => {
 					const tId = setTimeout(
@@ -83,7 +83,7 @@ export class AuthCryptoService {
 					payload: {
 						type: 'IMPORT_KEYS',
 						payload: {
-							vaultKeyB64: storedKeys['VaultKeyB64'],
+							vaultKeyB64: storedKeys[StorageCore.KEYS.VAULT_KEY],
 						},
 					},
 				});
