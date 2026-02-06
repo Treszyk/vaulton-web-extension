@@ -16,86 +16,188 @@ export class StorageCore {
 		PENDING_SAVE: 'PendingSavePrompts',
 	};
 
-	static async get(key: string, area: StorageArea = 'session'): Promise<any> {
-		const result = await this.execute('get', area, [key]);
+	private static readonly KEY_CHART: {
+		[key: string]: StorageArea | 'dynamic';
+	} = {
+		[StorageCore.KEYS.ACCESS_TOKEN]: 'dynamic',
+		[StorageCore.KEYS.REFRESH_TOKEN]: 'dynamic',
+		[StorageCore.KEYS.REFRESH_EXPIRES_AT]: 'dynamic',
+		[StorageCore.KEYS.VAULT_KEY]: 'dynamic',
+		[StorageCore.KEYS.VAULT_SESSION_KEY]: 'session',
+		[StorageCore.KEYS.ACCOUNT_ID]: 'local',
+		[StorageCore.KEYS.LOCKOUT_STRATEGY]: 'local',
+		[StorageCore.KEYS.ENCRYPTED_VAULT]: 'local',
+		[StorageCore.KEYS.PENDING_SAVE]: 'session',
+	};
+
+	private static strategyCache: {
+		val: StorageArea | null;
+		expiry: number;
+	} = { val: null, expiry: 0 };
+
+	static async get(key: string, area?: StorageArea): Promise<any> {
+		const targetArea = area || (await this.resolveArea(key));
+		const result = await this.execute('get', targetArea, [key]);
 		return result ? result[key] : undefined;
 	}
 
-	static async set(
-		key: string,
-		value: any,
-		area: StorageArea = 'session',
-	): Promise<void> {
-		await this.execute('set', area, { [key]: value });
+	static async set(key: string, value: any, area?: StorageArea): Promise<void> {
+		if (key === this.KEYS.LOCKOUT_STRATEGY) {
+			this.invalidateStrategyCache();
+		}
+		const targetArea = area || (await this.resolveArea(key));
+		await this.execute('set', targetArea, { [key]: value });
 	}
 
 	static async setMultiple(
 		items: { [key: string]: any },
-		area: StorageArea = 'session',
+		area?: StorageArea,
 	): Promise<void> {
-		await this.execute('set', area, items);
+		if (Object.keys(items).includes(this.KEYS.LOCKOUT_STRATEGY)) {
+			this.invalidateStrategyCache();
+		}
+		if (area) {
+			await this.execute('set', area, items);
+			return;
+		}
+
+		const buckets: { [key in StorageArea]: { [key: string]: any } } = {
+			local: {},
+			session: {},
+		};
+
+		for (const [key, val] of Object.entries(items)) {
+			const target = await this.resolveArea(key);
+			buckets[target][key] = val;
+		}
+
+		if (Object.keys(buckets.local).length > 0) {
+			await this.execute('set', 'local', buckets.local);
+		}
+		if (Object.keys(buckets.session).length > 0) {
+			await this.execute('set', 'session', buckets.session);
+		}
 	}
 
 	static async getMultiple(
 		keys: string[],
-		area: StorageArea = 'session',
+		area?: StorageArea,
 	): Promise<{ [key: string]: any }> {
-		return (await this.execute('get', area, keys)) || {};
+		if (area) {
+			return (await this.execute('get', area, keys)) || {};
+		}
+
+		const buckets: { [key in StorageArea]: string[] } = {
+			local: [],
+			session: [],
+		};
+
+		for (const key of keys) {
+			const target = await this.resolveArea(key);
+			buckets[target].push(key);
+		}
+
+		const results: { [key: string]: any } = {};
+		if (buckets.local.length > 0) {
+			Object.assign(results, await this.execute('get', 'local', buckets.local));
+		}
+		if (buckets.session.length > 0) {
+			Object.assign(
+				results,
+				await this.execute('get', 'session', buckets.session),
+			);
+		}
+		return results;
 	}
 
-	static async remove(
-		key: string,
-		area: StorageArea = 'session',
-	): Promise<void> {
-		await this.execute('remove', area, [key]);
+	static async remove(key: string, area?: StorageArea): Promise<void> {
+		const targetArea = area || (await this.resolveArea(key));
+		await this.execute('remove', targetArea, [key]);
 	}
 
 	static async removeMultiple(
 		keys: string[],
-		area: StorageArea = 'session',
+		area?: StorageArea,
 	): Promise<void> {
-		await this.execute('remove', area, keys);
+		if (area) {
+			await this.execute('remove', area, keys);
+			return;
+		}
+
+		const buckets: { [key in StorageArea]: string[] } = {
+			local: [],
+			session: [],
+		};
+
+		for (const key of keys) {
+			const target = await this.resolveArea(key);
+			buckets[target].push(key);
+		}
+
+		if (buckets.local.length > 0) {
+			await this.execute('remove', 'local', buckets.local);
+		}
+		if (buckets.session.length > 0) {
+			await this.execute('remove', 'session', buckets.session);
+		}
 	}
 
 	static async clear(area: StorageArea = 'session'): Promise<void> {
 		await this.execute('clear', area);
 	}
 
-	static async getSmart(key: string): Promise<any> {
-		const area = await this.detectArea();
-		return this.get(key, area);
+	/**
+	 * Clears the volatile session state.
+	 * - Wipes EVERYTHING in the 'session' storage area.
+	 * - Removes dynamic keys (tokens, vault key) from the 'local' area.
+	 * - Preserves persistent local keys (AccountId, Strategy, EncryptedVault).
+	 */
+	static async clearSession(): Promise<void> {
+		// 1. Wipe volatile area completely
+		await this.execute('clear', 'session');
+
+		// 2. Clean dynamic/temporary keys from local storage
+		const dynamicKeys = Object.entries(this.KEY_CHART)
+			.filter(([_, val]) => val === 'dynamic')
+			.map(([k, _]) => k);
+
+		// Include EncryptedVault as requested (useless without session key)
+		await this.execute('remove', 'local', [
+			...dynamicKeys,
+			this.KEYS.ENCRYPTED_VAULT,
+		]);
 	}
 
-	static async setSmart(key: string, value: any): Promise<void> {
-		const area = await this.detectArea();
-		await this.set(key, value, area);
-	}
-
-	static async removeSmart(key: string): Promise<void> {
-		const area = await this.detectArea();
-		await this.remove(key, area);
-	}
-
-	static async getSmartMultiple(
-		keys: string[],
-	): Promise<{ [key: string]: any }> {
-		const area = await this.detectArea();
-		return this.getMultiple(keys, area);
-	}
-
-	static async setSmartMultiple(items: { [key: string]: any }): Promise<void> {
-		const area = await this.detectArea();
-		await this.setMultiple(items, area);
-	}
-
-	static async removeSmartMultiple(keys: string[]): Promise<void> {
-		const area = await this.detectArea();
-		await this.removeMultiple(keys, area);
+	private static async resolveArea(key: string): Promise<StorageArea> {
+		const chartValue = this.KEY_CHART[key];
+		if (chartValue && chartValue !== 'dynamic') {
+			return chartValue;
+		}
+		return this.detectArea();
 	}
 
 	static async detectArea(): Promise<StorageArea> {
-		const strategy = await this.get('LockoutStrategy', 'local');
-		return strategy === 'Persistent' ? 'local' : 'session';
+		const now = Date.now();
+		if (this.strategyCache.val && now < this.strategyCache.expiry) {
+			return this.strategyCache.val;
+		}
+
+		const strategy = await this.execute('get', 'local', [
+			this.KEYS.LOCKOUT_STRATEGY,
+		]);
+		const val = strategy?.[this.KEYS.LOCKOUT_STRATEGY];
+		const res = val === 'Persistent' ? 'local' : 'session';
+
+		this.strategyCache = {
+			val: res,
+			expiry: now + 5000,
+		};
+
+		return res;
+	}
+
+	static invalidateStrategyCache(): void {
+		this.strategyCache = { val: null, expiry: 0 };
 	}
 
 	private static async execute(

@@ -150,6 +150,7 @@ export class SavePrompt {
 		this.element = prompt;
 
 		this.timeoutId = window.setTimeout(() => {
+			onAction('not-now');
 			this.hide();
 		}, 15000);
 	}

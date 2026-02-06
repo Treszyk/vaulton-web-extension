@@ -61,11 +61,9 @@ export class AuthCryptoService {
 					this.terminate();
 				};
 
-				const area = await StorageCore.detectArea();
-				const storedKeys = await StorageCore.getMultiple(
-					[StorageCore.KEYS.VAULT_KEY],
-					area,
-				);
+				const storedKeys = await StorageCore.getMultiple([
+					StorageCore.KEYS.VAULT_KEY,
+				]);
 
 				if (storedKeys[StorageCore.KEYS.VAULT_KEY]) {
 					if (!this.worker) throw new Error('Worker lost during init');
@@ -210,11 +208,7 @@ export class AuthCryptoService {
 			);
 
 			if (res.vaultKeyB64) {
-				await StorageCore.set(
-					StorageCore.KEYS.VAULT_KEY,
-					res.vaultKeyB64,
-					'session',
-				);
+				await StorageCore.set(StorageCore.KEYS.VAULT_KEY, res.vaultKeyB64);
 			}
 		} finally {
 			if (pwdBytes) {
@@ -241,10 +235,10 @@ export class AuthCryptoService {
 
 	async clearKeys(): Promise<void> {
 		try {
-			await StorageCore.removeMultiple(
-				[StorageCore.KEYS.VAULT_KEY, StorageCore.KEYS.VAULT_SESSION_KEY],
-				'session',
-			);
+			await StorageCore.removeMultiple([
+				StorageCore.KEYS.VAULT_KEY,
+				StorageCore.KEYS.VAULT_SESSION_KEY,
+			]);
 			await this.postToWorker('CLEAR_KEYS', {});
 		} catch {}
 	}

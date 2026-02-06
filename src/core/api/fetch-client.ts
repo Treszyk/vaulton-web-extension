@@ -8,7 +8,7 @@ export async function fetchClient<T>(
 	url: string,
 	options: RequestInit = {},
 ): Promise<T> {
-	const accessToken = await StorageCore.getSmart(StorageCore.KEYS.ACCESS_TOKEN);
+	const accessToken = await StorageCore.get(StorageCore.KEYS.ACCESS_TOKEN);
 
 	const headers = new Headers(options.headers || {});
 	if (accessToken) {
@@ -26,9 +26,7 @@ export async function fetchClient<T>(
 	let response = await fetch(url, config);
 
 	if (response.status === 401) {
-		const refreshToken = await StorageCore.getSmart(
-			StorageCore.KEYS.REFRESH_TOKEN,
-		);
+		const refreshToken = await StorageCore.get(StorageCore.KEYS.REFRESH_TOKEN);
 		if (!refreshToken) {
 			throw new Error('Session expired');
 		}
@@ -37,7 +35,7 @@ export async function fetchClient<T>(
 			refreshPromise = (async () => {
 				const keys = StorageCore.KEYS;
 				try {
-					const refreshExpiresAt = await StorageCore.getSmart(
+					const refreshExpiresAt = await StorageCore.get(
 						keys.REFRESH_EXPIRES_AT,
 					);
 
@@ -49,7 +47,7 @@ export async function fetchClient<T>(
 					}
 
 					const refreshRes = await apiRefresh(refreshToken);
-					await StorageCore.setSmartMultiple({
+					await StorageCore.setMultiple({
 						[keys.ACCESS_TOKEN]: refreshRes.AccessToken,
 						[keys.REFRESH_TOKEN]: refreshRes.RefreshToken,
 						[keys.REFRESH_EXPIRES_AT]: refreshRes.RefreshExpiresAt,
@@ -57,7 +55,7 @@ export async function fetchClient<T>(
 					return refreshRes.AccessToken;
 				} catch (e) {
 					console.error('Refresh failed', e);
-					await StorageCore.removeSmartMultiple([
+					await StorageCore.removeMultiple([
 						keys.ACCESS_TOKEN,
 						keys.REFRESH_TOKEN,
 						keys.VAULT_KEY,

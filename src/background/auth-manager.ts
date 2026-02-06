@@ -36,12 +36,10 @@ export class BackgroundAuthManager {
 
 	private async trySyncVault(): Promise<boolean | 'unauthorized'> {
 		const keys = StorageCore.KEYS;
-		const { AccessToken } = await StorageCore.getSmartMultiple([
-			keys.ACCESS_TOKEN,
-		]);
+		const { AccessToken } = await StorageCore.getMultiple([keys.ACCESS_TOKEN]);
 		if (!AccessToken) return false;
 
-		const storageKeys = await StorageCore.getSmartMultiple([keys.VAULT_KEY]);
+		const storageKeys = await StorageCore.getMultiple([keys.VAULT_KEY]);
 
 		if (!storageKeys[keys.VAULT_KEY]) return false;
 
@@ -117,7 +115,7 @@ export class BackgroundAuthManager {
 
 	async completeLogin(vaultKeyB64: string): Promise<boolean> {
 		try {
-			await StorageCore.setSmartMultiple({
+			await StorageCore.setMultiple({
 				[StorageCore.KEYS.VAULT_KEY]: vaultKeyB64,
 			});
 			return true;
@@ -130,7 +128,7 @@ export class BackgroundAuthManager {
 	async refreshTokens(): Promise<boolean> {
 		const keys = StorageCore.KEYS;
 		const { RefreshToken, RefreshExpiresAt, VaultKeyB64 } =
-			await StorageCore.getSmartMultiple([
+			await StorageCore.getMultiple([
 				keys.REFRESH_TOKEN,
 				keys.REFRESH_EXPIRES_AT,
 				keys.VAULT_KEY,
@@ -166,11 +164,10 @@ export class BackgroundAuthManager {
 
 	async logout(): Promise<void> {
 		const keys = StorageCore.KEYS;
-		const { RefreshToken, RefreshExpiresAt } =
-			await StorageCore.getSmartMultiple([
-				keys.REFRESH_TOKEN,
-				keys.REFRESH_EXPIRES_AT,
-			]);
+		const { RefreshToken, RefreshExpiresAt } = await StorageCore.getMultiple([
+			keys.REFRESH_TOKEN,
+			keys.REFRESH_EXPIRES_AT,
+		]);
 
 		if (RefreshToken && !isTokenExpired(RefreshExpiresAt)) {
 			try {
@@ -205,22 +202,17 @@ export class BackgroundAuthManager {
 		);
 
 		if (accountId) {
-			await StorageCore.set(keys.ACCOUNT_ID, accountId, 'local');
+			await StorageCore.set(keys.ACCOUNT_ID, accountId);
 		}
 	}
 
 	public async clearSession(): Promise<void> {
-		const keys = Object.values(StorageCore.KEYS);
 		console.log('[Background] Clearing session keys and tokens...');
-		await StorageCore.removeMultiple(keys, 'session');
-		await StorageCore.removeMultiple(keys, 'local');
+		await StorageCore.clearSession();
 	}
 
 	public async resetLockTimer(): Promise<void> {
-		const strategy = await StorageCore.get(
-			StorageCore.KEYS.LOCKOUT_STRATEGY,
-			'local',
-		);
+		const strategy = await StorageCore.get(StorageCore.KEYS.LOCKOUT_STRATEGY);
 
 		await chrome.alarms.clear('auto-lock');
 
@@ -233,7 +225,6 @@ export class BackgroundAuthManager {
 	public async isLocked(): Promise<boolean> {
 		const sessionKey = await StorageCore.get(
 			StorageCore.KEYS.VAULT_SESSION_KEY,
-			'session',
 		);
 		return !sessionKey;
 	}
@@ -244,12 +235,10 @@ export class BackgroundAuthManager {
 		password: string,
 	): Promise<void> {
 		const keys = StorageCore.KEYS;
-		const { AccessToken } = await StorageCore.getSmartMultiple([
-			keys.ACCESS_TOKEN,
-		]);
+		const { AccessToken } = await StorageCore.getMultiple([keys.ACCESS_TOKEN]);
 		if (!AccessToken) throw new Error('Not authenticated');
 
-		const storageKeys = await StorageCore.getSmartMultiple([keys.VAULT_KEY]);
+		const storageKeys = await StorageCore.getMultiple([keys.VAULT_KEY]);
 		if (!storageKeys[keys.VAULT_KEY]) {
 			throw new Error('Vault keys not available');
 		}
@@ -298,32 +287,25 @@ export class BackgroundAuthManager {
 		if (await this.isLocked()) return;
 
 		const keys = StorageCore.KEYS;
-		const sessionKeyB64 = await StorageCore.get(
-			keys.VAULT_SESSION_KEY,
-			'session',
-		);
+		const sessionKeyB64 = await StorageCore.get(keys.VAULT_SESSION_KEY);
 		if (!sessionKeyB64) return;
 
 		const sessionKey = await importSessionKey(sessionKeyB64);
 		const encrypted = await encryptVaultCache(sessionKey, JSON.stringify(data));
 
-		const allPending =
-			(await StorageCore.get(keys.PENDING_SAVE, 'local')) || {};
+		const allPending = (await StorageCore.get(keys.PENDING_SAVE)) || {};
 		allPending[domain.toLowerCase()] = encrypted;
 
-		await StorageCore.set(keys.PENDING_SAVE, allPending, 'local');
+		await StorageCore.set(keys.PENDING_SAVE, allPending);
 	}
 
 	public async getPendingSavePrompt(domain: string): Promise<any | null> {
 		const keys = StorageCore.KEYS;
-		const allPending = await StorageCore.get(keys.PENDING_SAVE, 'local');
+		const allPending = await StorageCore.get(keys.PENDING_SAVE);
 		if (!allPending || !allPending[domain.toLowerCase()]) return null;
 
 		const encrypted = allPending[domain.toLowerCase()];
-		const sessionKeyB64 = await StorageCore.get(
-			keys.VAULT_SESSION_KEY,
-			'session',
-		);
+		const sessionKeyB64 = await StorageCore.get(keys.VAULT_SESSION_KEY);
 		if (!sessionKeyB64) return null;
 
 		try {
@@ -337,10 +319,10 @@ export class BackgroundAuthManager {
 
 	public async clearPendingSavePrompt(domain: string): Promise<void> {
 		const key = StorageCore.KEYS.PENDING_SAVE;
-		const allPending = await StorageCore.get(key, 'local');
+		const allPending = await StorageCore.get(key);
 		if (allPending && allPending[domain.toLowerCase()]) {
 			delete allPending[domain.toLowerCase()];
-			await StorageCore.set(key, allPending, 'local');
+			await StorageCore.set(key, allPending);
 		}
 	}
 }

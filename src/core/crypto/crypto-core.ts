@@ -294,10 +294,7 @@ export async function importSessionKey(keyB64: string): Promise<CryptoKey> {
 }
 
 export async function ensureVaultSessionKey(): Promise<CryptoKey> {
-	const stored = await StorageCore.get(
-		StorageCore.KEYS.VAULT_SESSION_KEY,
-		'session',
-	);
+	const stored = await StorageCore.get(StorageCore.KEYS.VAULT_SESSION_KEY);
 	if (stored) {
 		return importSessionKey(stored);
 	}
@@ -311,6 +308,6 @@ export async function ensureVaultSessionKey(): Promise<CryptoKey> {
 	const exported = await crypto.subtle.exportKey('raw', key);
 	const b64 = bytesToB64(new Uint8Array(exported));
 
-	await StorageCore.set(StorageCore.KEYS.VAULT_SESSION_KEY, b64, 'session');
+	await StorageCore.set(StorageCore.KEYS.VAULT_SESSION_KEY, b64);
 	return key;
 }

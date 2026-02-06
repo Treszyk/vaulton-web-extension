@@ -33,7 +33,7 @@ export class SessionService {
 			StorageCore.KEYS.ACCOUNT_ID,
 			StorageCore.KEYS.LOCKOUT_STRATEGY,
 		];
-		const local = await StorageCore.getMultiple(localList, 'local');
+		const local = await StorageCore.getMultiple(localList);
 		this.accountId.set(local[StorageCore.KEYS.ACCOUNT_ID] || null);
 		this.lockoutStrategy.set(
 			local[StorageCore.KEYS.LOCKOUT_STRATEGY] || 'OnQuit',
@@ -43,7 +43,7 @@ export class SessionService {
 			StorageCore.KEYS.ACCESS_TOKEN,
 			StorageCore.KEYS.VAULT_KEY,
 		];
-		const data = await StorageCore.getSmartMultiple(smartList);
+		const data = await StorageCore.getMultiple(smartList);
 
 		this.isAuthenticated.set(!!data[StorageCore.KEYS.ACCESS_TOKEN]);
 		this.isLocked.set(!data[StorageCore.KEYS.VAULT_KEY]);
@@ -96,7 +96,7 @@ export class SessionService {
 
 	async setLockoutStrategy(strategy: string): Promise<void> {
 		const oldArea = await StorageCore.detectArea();
-		await StorageCore.set(StorageCore.KEYS.LOCKOUT_STRATEGY, strategy, 'local');
+		await StorageCore.set(StorageCore.KEYS.LOCKOUT_STRATEGY, strategy);
 		const newArea = await StorageCore.detectArea();
 
 		if (oldArea !== newArea && this.isAuthenticated()) {

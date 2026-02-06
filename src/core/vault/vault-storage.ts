@@ -10,8 +10,8 @@ const LOCAL_VAULT_NAME = StorageCore.KEYS.ENCRYPTED_VAULT;
 const SESSION_KEY_NAME = StorageCore.KEYS.VAULT_SESSION_KEY;
 
 export async function loadVault(): Promise<any[]> {
-	const vaultEncrypted = await StorageCore.get(LOCAL_VAULT_NAME, 'local');
-	const sessionKeyB64 = await StorageCore.get(SESSION_KEY_NAME, 'session');
+	const vaultEncrypted = await StorageCore.get(LOCAL_VAULT_NAME);
+	const sessionKeyB64 = await StorageCore.get(SESSION_KEY_NAME);
 
 	if (!vaultEncrypted || !sessionKeyB64) {
 		return [];
@@ -31,5 +31,5 @@ export async function saveVault(records: any[]): Promise<void> {
 	const sessionKey = await ensureVaultSessionKey();
 	const json = JSON.stringify(records);
 	const encryptedCache = await encryptVaultCache(sessionKey, json);
-	await StorageCore.set(LOCAL_VAULT_NAME, encryptedCache, 'local');
+	await StorageCore.set(LOCAL_VAULT_NAME, encryptedCache);
 }

@@ -36,6 +36,7 @@ browserApi.storage.onChanged.addListener((changes: { [key: string]: any }) => {
 	}
 
 	if (changes[keys.LOCKOUT_STRATEGY]) {
+		StorageCore.invalidateStrategyCache();
 		auth.resetLockTimer();
 	}
 

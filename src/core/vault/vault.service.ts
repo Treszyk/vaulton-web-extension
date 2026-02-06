@@ -75,7 +75,7 @@ export class VaultService {
 		entry: VaultRecordInput,
 		aad: string,
 	): Promise<{ Payload: EncryptedValueDto }> {
-		const keyB64 = await StorageCore.get(StorageCore.KEYS.VAULT_KEY, 'session');
+		const keyB64 = await StorageCore.get(StorageCore.KEYS.VAULT_KEY);
 		if (!keyB64) throw new Error('Vault locked');
 		const { vaultKey } = await importVaultKeys(keyB64);
 		return encryptVaultRecord(vaultKey, entry, aad);
