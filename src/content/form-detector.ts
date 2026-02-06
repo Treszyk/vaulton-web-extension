@@ -14,11 +14,9 @@ export interface FormSubmitData {
 export class FormDetector {
 	private forms: LoginForm[] = [];
 	private observer: MutationObserver | null = null;
-	private submitListeners: Map<
-		LoginForm,
-		((e: Event) => void) | ((e: KeyboardEvent) => void)
-	> = new Map();
+	private submitListeners: WeakSet<HTMLElement> = new WeakSet();
 	private processedInputs: Set<HTMLInputElement> = new Set();
+	private isSubmitting = false;
 
 	detectForms(): LoginForm[] {
 		this.forms = [];
@@ -27,6 +25,7 @@ export class FormDetector {
 		);
 
 		passwordInputs.forEach((passwordInput) => {
+			if (this.processedInputs.has(passwordInput)) return;
 			if (!passwordInput.offsetParent) return;
 
 			if (this.scorePasswordInput(passwordInput) < 70) return;
@@ -119,7 +118,9 @@ export class FormDetector {
 		this.observer = new MutationObserver(() => {
 			const allForms = this.detectForms();
 			const newForms = allForms.filter((form) => {
-				return !this.submitListeners.has(form);
+				const primary =
+					form.formElement || form.passwordInput || form.usernameInput;
+				return primary && !this.submitListeners.has(primary);
 			});
 
 			if (newForms.length > 0) {
@@ -137,14 +138,15 @@ export class FormDetector {
 		form: LoginForm,
 		onSubmit: (data: FormSubmitData) => void,
 	): void {
-		if (this.submitListeners.has(form)) return;
+		const primaryElement =
+			form.formElement || form.passwordInput || form.usernameInput;
+		if (!primaryElement || this.submitListeners.has(primaryElement)) return;
 
-		let isSubmitting = false;
 		const handleSubmit = () => {
-			if (isSubmitting) return;
-			isSubmitting = true;
+			if (this.isSubmitting) return;
+			this.isSubmitting = true;
 			setTimeout(() => {
-				isSubmitting = false;
+				this.isSubmitting = false;
 			}, 1000);
 
 			const username = form.usernameInput ? form.usernameInput.value : '';
@@ -156,10 +158,15 @@ export class FormDetector {
 		};
 
 		if (form.formElement) {
-			const listener = () => {
-				handleSubmit();
-			};
-			form.formElement.addEventListener('submit', listener, { capture: true });
+			if (!this.submitListeners.has(form.formElement)) {
+				const listener = () => {
+					handleSubmit();
+				};
+				form.formElement.addEventListener('submit', listener, {
+					capture: true,
+				});
+				this.submitListeners.add(form.formElement);
+			}
 
 			const submitButtons = form.formElement.querySelectorAll(
 				'button[type="submit"], button:not([type]), input[type="submit"]',
@@ -168,13 +175,18 @@ export class FormDetector {
 			submitButtons.forEach((btn) => {
 				const buttonEl = btn as HTMLButtonElement | HTMLInputElement;
 
-				const buttonListener = () => {
-					handleSubmit();
-				};
-				buttonEl.addEventListener('click', buttonListener, { capture: true });
+				if (!this.submitListeners.has(buttonEl)) {
+					const buttonListener = () => {
+						handleSubmit();
+					};
+					buttonEl.addEventListener('click', buttonListener, {
+						capture: true,
+					});
+					this.submitListeners.add(buttonEl);
+				}
 			});
 
-			this.submitListeners.set(form, listener);
+			this.submitListeners.add(form.formElement);
 		} else {
 			const anchorInput = form.passwordInput || form.usernameInput;
 			if (!anchorInput) return;
@@ -192,12 +204,15 @@ export class FormDetector {
 					buttons.forEach((btn) => {
 						const buttonEl = btn as HTMLButtonElement | HTMLInputElement;
 
-						const buttonListener = () => {
-							handleSubmit();
-						};
-						buttonEl.addEventListener('click', buttonListener, {
-							capture: true,
-						});
+						if (!this.submitListeners.has(buttonEl)) {
+							const buttonListener = () => {
+								handleSubmit();
+							};
+							buttonEl.addEventListener('click', buttonListener, {
+								capture: true,
+							});
+							this.submitListeners.add(buttonEl);
+						}
 					});
 					buttonsFound = buttons.length;
 				}
@@ -210,31 +225,41 @@ export class FormDetector {
 				const docButtons = document.querySelectorAll('button[type="submit"]');
 				docButtons.forEach((btn) => {
 					const buttonEl = btn as HTMLButtonElement;
-					const buttonListener = () => {
-						handleSubmit();
-					};
-					buttonEl.addEventListener('click', buttonListener, { capture: true });
+					if (!this.submitListeners.has(buttonEl)) {
+						const buttonListener = () => {
+							handleSubmit();
+						};
+						buttonEl.addEventListener('click', buttonListener, {
+							capture: true,
+						});
+						this.submitListeners.add(buttonEl);
+					}
 				});
 			}
 
-			if (form.passwordInput) {
+			if (form.passwordInput && !this.submitListeners.has(form.passwordInput)) {
 				const handleKeydown = (e: KeyboardEvent) => {
 					if (e.key === 'Enter') {
 						handleSubmit();
 					}
 				};
 				form.passwordInput.addEventListener('keydown', handleKeydown);
-				this.submitListeners.set(form, handleKeydown as unknown as () => void);
-			} else if (form.usernameInput) {
+				this.submitListeners.add(form.passwordInput);
+			} else if (
+				form.usernameInput &&
+				!this.submitListeners.has(form.usernameInput)
+			) {
 				const handleKeydown = (e: KeyboardEvent) => {
 					if (e.key === 'Enter') {
 						handleSubmit();
 					}
 				};
 				form.usernameInput.addEventListener('keydown', handleKeydown);
-				this.submitListeners.set(form, handleKeydown as unknown as () => void);
+				this.submitListeners.add(form.usernameInput);
 			}
 		}
+
+		if (primaryElement) this.submitListeners.add(primaryElement);
 
 		if (form.passwordInput) this.processedInputs.add(form.passwordInput);
 		if (form.usernameInput) this.processedInputs.add(form.usernameInput);
