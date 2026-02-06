@@ -57,6 +57,42 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 						</button>
 					</div>
 				</div>
+
+				<div class="settings-section">
+					<h3>Excluded Sites</h3>
+					<p class="section-desc">
+						Domains where password prompts are disabled.
+					</p>
+
+					<div
+						class="exclusion-list"
+						*ngIf="auth.excludedSites().length > 0; else noExclusions">
+						<div
+							class="exclusion-item"
+							*ngFor="let domain of auth.excludedSites()">
+							<span class="domain-name">{{ domain }}</span>
+							<button
+								class="btn-remove"
+								(click)="onRemoveExclusion(domain)"
+								title="Remove exclusion">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor">
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+								</svg>
+							</button>
+						</div>
+					</div>
+					<ng-template #noExclusions>
+						<div class="empty-exclusions">No sites excluded from prompts.</div>
+					</ng-template>
+				</div>
 			</div>
 		</div>
 
@@ -218,6 +254,73 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 				transform: translateY(-2px);
 				box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 			}
+
+			.exclusion-list {
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+				width: 100%;
+			}
+
+			.exclusion-item {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 12px 16px;
+				background: #09090b;
+				border: 1px solid #18181b;
+				border-radius: 0.75rem;
+				transition: all 0.2s;
+			}
+
+			.exclusion-item:hover {
+				border-color: #27272a;
+				background: #121214;
+			}
+
+			.domain-name {
+				color: #e4e4e7;
+				font-size: 13px;
+				font-weight: 500;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				margin-right: 12px;
+			}
+
+			.btn-remove {
+				background: transparent;
+				border: none;
+				color: #71717a;
+				padding: 6px;
+				cursor: pointer;
+				border-radius: 6px;
+				transition: all 0.2s;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+
+			.btn-remove:hover {
+				background: rgba(239, 68, 68, 0.1);
+				color: #ef4444;
+			}
+
+			.btn-remove svg {
+				width: 16px;
+				height: 16px;
+			}
+
+			.empty-exclusions {
+				background: #09090b;
+				border: 1px dashed #18181b;
+				border-radius: 0.75rem;
+				padding: 16px;
+				text-align: center;
+				color: #52525b;
+				font-size: 11px;
+				font-weight: 500;
+			}
 		`,
 	],
 })
@@ -260,5 +363,9 @@ export class SettingsComponent {
 	async onLogout() {
 		this.showLogoutConfirm.set(false);
 		await this.auth.logout();
+	}
+
+	async onRemoveExclusion(domain: string) {
+		await this.auth.removeExclusion(domain);
 	}
 }

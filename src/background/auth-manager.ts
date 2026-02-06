@@ -325,4 +325,35 @@ export class BackgroundAuthManager {
 			await StorageCore.set(key, allPending);
 		}
 	}
+
+	public async addToExclusions(domain: string): Promise<void> {
+		const baseDomain = getBaseDomain(domain);
+		if (!baseDomain) return;
+
+		const key = StorageCore.KEYS.EXCLUDED_SITES;
+		const exclusions: string[] = (await StorageCore.get(key)) || [];
+
+		if (!exclusions.includes(baseDomain)) {
+			exclusions.push(baseDomain);
+			await StorageCore.set(key, exclusions);
+		}
+	}
+
+	public async getExclusions(): Promise<string[]> {
+		const key = StorageCore.KEYS.EXCLUDED_SITES;
+		return (await StorageCore.get(key)) || [];
+	}
+
+	public async removeExclusion(domain: string): Promise<void> {
+		const baseDomain = getBaseDomain(domain);
+		if (!baseDomain) return;
+
+		const key = StorageCore.KEYS.EXCLUDED_SITES;
+		const exclusions: string[] = (await StorageCore.get(key)) || [];
+
+		const updated = exclusions.filter((d) => d !== baseDomain);
+		if (updated.length !== exclusions.length) {
+			await StorageCore.set(key, updated);
+		}
+	}
 }

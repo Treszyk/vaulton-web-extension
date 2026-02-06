@@ -43,7 +43,10 @@ export type BackgroundAction =
 	| {
 			type: 'CLEAR_PENDING_SAVE';
 			payload: { domain: string };
-	  };
+	  }
+	| { type: 'ADD_TO_EXCLUSIONS'; payload: { domain: string } }
+	| { type: 'REMOVE_EXCLUSION'; payload: { domain: string } }
+	| { type: 'GET_EXCLUSIONS' };
 
 export interface BackgroundResponse<T = any> {
 	success: boolean;

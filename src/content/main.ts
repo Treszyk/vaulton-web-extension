@@ -165,6 +165,15 @@ async function handleFormSubmit(data: FormSubmitData): Promise<void> {
 		return;
 	}
 
+	const exclusionsRes = await browserApi.runtime.sendMessage({
+		type: 'GET_EXCLUSIONS',
+	});
+	const exclusions: string[] = exclusionsRes?.data || [];
+	if (exclusions.includes(baseDomain)) {
+		console.log('[Vaulton] Domain is excluded from prompts:', baseDomain);
+		return;
+	}
+
 	try {
 		console.log(
 			'[Vaulton] Notifying background of pending save for:',
@@ -179,7 +188,11 @@ async function handleFormSubmit(data: FormSubmitData): Promise<void> {
 				action: 'save',
 			},
 		});
+	} catch (e) {
+		console.error('[Vaulton] Failed to set pending save:', e);
+	}
 
+	try {
 		const response = await browserApi.runtime.sendMessage({
 			type: 'CHECK_CREDENTIAL_EXISTS',
 			payload: {
@@ -224,6 +237,14 @@ async function handleFormSubmit(data: FormSubmitData): Promise<void> {
 					payload: { domain: baseDomain },
 				});
 
+				if (userAction === 'never') {
+					await browserApi.runtime.sendMessage({
+						type: 'ADD_TO_EXCLUSIONS',
+						payload: { domain: baseDomain },
+					});
+					return;
+				}
+
 				if (userAction === 'save' || userAction === 'update') {
 					try {
 						await browserApi.runtime.sendMessage({
@@ -255,40 +276,55 @@ async function initialize(): Promise<void> {
 	console.log('[Vaulton] Checking pending saves for domain:', baseDomain);
 
 	if (baseDomain) {
-		const pendingResult = await browserApi.runtime.sendMessage({
-			type: 'GET_PENDING_SAVE',
-			payload: { domain: baseDomain },
+		const exclusionsRes = await browserApi.runtime.sendMessage({
+			type: 'GET_EXCLUSIONS',
 		});
+		const exclusions: string[] = exclusionsRes?.data || [];
 
-		console.log('[Vaulton] GET_PENDING_SAVE response:', pendingResult);
+		if (!exclusions.includes(baseDomain)) {
+			const pendingResult = await browserApi.runtime.sendMessage({
+				type: 'GET_PENDING_SAVE',
+				payload: { domain: baseDomain },
+			});
 
-		if (pendingResult && pendingResult.success && pendingResult.data) {
-			const pending = pendingResult.data;
-			console.log('[Vaulton] Recovered pending save:', pending.username);
-			savePrompt.show(
-				pending.action,
-				pending.domain,
-				pending.username,
-				async (userAction) => {
-					await browserApi.runtime.sendMessage({
-						type: 'CLEAR_PENDING_SAVE',
-						payload: { domain: baseDomain },
-					});
+			console.log('[Vaulton] GET_PENDING_SAVE response:', pendingResult);
 
-					if (userAction === 'save' || userAction === 'update') {
+			if (pendingResult && pendingResult.success && pendingResult.data) {
+				const pending = pendingResult.data;
+				console.log('[Vaulton] Recovered pending save:', pending.username);
+				savePrompt.show(
+					pending.action,
+					pending.domain,
+					pending.username,
+					async (userAction) => {
 						await browserApi.runtime.sendMessage({
-							type: 'SAVE_CREDENTIAL',
-							payload: {
-								domain: pending.domain,
-								username: pending.username,
-								password: pending.password,
-							},
+							type: 'CLEAR_PENDING_SAVE',
+							payload: { domain: baseDomain },
 						});
-					}
-				},
-			);
-		} else {
-			console.log('[Vaulton] No pending saves found.');
+
+						if (userAction === 'never') {
+							await browserApi.runtime.sendMessage({
+								type: 'ADD_TO_EXCLUSIONS',
+								payload: { domain: baseDomain },
+							});
+							return;
+						}
+
+						if (userAction === 'save' || userAction === 'update') {
+							await browserApi.runtime.sendMessage({
+								type: 'SAVE_CREDENTIAL',
+								payload: {
+									domain: pending.domain,
+									username: pending.username,
+									password: pending.password,
+								},
+							});
+						}
+					},
+				);
+			} else {
+				console.log('[Vaulton] No pending saves found.');
+			}
 		}
 	}
 

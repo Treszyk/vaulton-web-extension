@@ -14,6 +14,7 @@ export class SessionService {
 	readonly accountId = signal<string | null>(null);
 	readonly isLocked = signal(true);
 	readonly lockoutStrategy = signal<string>('OnQuit');
+	readonly excludedSites = signal<string[]>([]);
 
 	constructor() {
 		this.initStorageListener();
@@ -47,6 +48,9 @@ export class SessionService {
 
 		this.isAuthenticated.set(!!data[StorageCore.KEYS.ACCESS_TOKEN]);
 		this.isLocked.set(!data[StorageCore.KEYS.VAULT_KEY]);
+
+		const exclusions = await StorageCore.get(StorageCore.KEYS.EXCLUDED_SITES);
+		this.excludedSites.set(exclusions || []);
 	}
 
 	async tryRestore(): Promise<void> {
@@ -115,6 +119,11 @@ export class SessionService {
 	}
 
 	async checkVaultStatus(): Promise<void> {
+		await this.syncStateFromStorage();
+	}
+
+	async removeExclusion(domain: string): Promise<void> {
+		await sendCommand({ type: 'REMOVE_EXCLUSION', payload: { domain } });
 		await this.syncStateFromStorage();
 	}
 }

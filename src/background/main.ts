@@ -117,6 +117,12 @@ async function handleAction(action: BackgroundAction): Promise<any> {
 			return auth.getPendingSavePrompt(action.payload.domain);
 		case 'CLEAR_PENDING_SAVE':
 			return auth.clearPendingSavePrompt(action.payload.domain);
+		case 'ADD_TO_EXCLUSIONS':
+			return auth.addToExclusions(action.payload.domain);
+		case 'REMOVE_EXCLUSION':
+			return auth.removeExclusion(action.payload.domain);
+		case 'GET_EXCLUSIONS':
+			return auth.getExclusions();
 		default:
 			throw new Error(`Unknown action: ${(action as any).type}`);
 	}

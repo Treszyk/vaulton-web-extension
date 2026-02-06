@@ -14,6 +14,7 @@ export class StorageCore {
 		LOCKOUT_STRATEGY: 'LockoutStrategy',
 		ENCRYPTED_VAULT: 'EncryptedVault',
 		PENDING_SAVE: 'PendingSavePrompts',
+		EXCLUDED_SITES: 'ExcludedSites',
 	};
 
 	private static readonly KEY_CHART: {
@@ -27,6 +28,7 @@ export class StorageCore {
 		[StorageCore.KEYS.ACCOUNT_ID]: 'local',
 		[StorageCore.KEYS.LOCKOUT_STRATEGY]: 'local',
 		[StorageCore.KEYS.ENCRYPTED_VAULT]: 'local',
+		[StorageCore.KEYS.EXCLUDED_SITES]: 'local',
 		[StorageCore.KEYS.PENDING_SAVE]: 'session',
 	};
 
