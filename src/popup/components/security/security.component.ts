@@ -127,11 +127,17 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 				overflow-x: hidden;
 			}
 
+			.settings-section {
+				display: flex;
+				flex-direction: column;
+				gap: 16px;
+			}
+
 			.settings-section h3 {
 				color: #a78bfa;
 				font-size: 12px;
 				font-weight: 950;
-				margin: 0 0 4px 0;
+				margin: 0;
 				text-transform: uppercase;
 				letter-spacing: 0.15em;
 			}
@@ -140,7 +146,7 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 				color: #a1a1aa;
 				font-size: 11px;
 				font-weight: 600;
-				margin: 0 0 24px 0;
+				margin: 0;
 			}
 
 			.selection-group {
@@ -176,12 +182,12 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 			}
 
 			.selection-item.is-active.is-danger {
-				background: rgba(220, 38, 38, 0.05);
-				border-color: #dc2626;
+				background: rgba(255, 77, 77, 0.05);
+				border-color: #ff4d4d;
 			}
 
 			.selection-item.is-danger .item-check {
-				color: #dc2626;
+				color: #ff4d4d;
 			}
 
 			.item-info {
@@ -222,35 +228,10 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 				}
 			}
 
-			.action-item {
+			.selection-group {
 				display: flex;
-				align-items: center;
-				justify-content: space-between;
-				padding: 20px;
-				background: #09090b;
-				border: 1px solid #18181b;
-				border-radius: 1.25rem;
-			}
-
-			.btn-logout {
-				background: rgba(239, 68, 68, 0.1);
-				border: 1px solid rgba(239, 68, 68, 0.2);
-				color: #ef4444;
-				padding: 10px 18px;
-				border-radius: 1rem;
-				font-size: 12px;
-				font-weight: 950;
-				cursor: pointer;
-				transition: all 0.2s;
-				text-transform: uppercase;
-				letter-spacing: 0.1em;
-			}
-
-			.btn-logout:hover {
-				background: #ef4444;
-				color: white;
-				transform: translateY(-2px);
-				box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+				flex-direction: column;
+				gap: 12px;
 			}
 
 			.exclusion-list {

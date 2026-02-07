@@ -86,6 +86,10 @@ async function handleAction(action: BackgroundAction): Promise<any> {
 			return auth.completeLogin(action.payload.vaultKeyB64);
 		case 'LOGOUT':
 			return auth.logout();
+		case 'LOGOUT_ALL':
+			return auth.logoutAll();
+		case 'WIPE_ALL':
+			return auth.wipeAllData();
 		case 'REFRESH':
 			return auth.refreshTokens();
 		case 'SYNC_VAULT':

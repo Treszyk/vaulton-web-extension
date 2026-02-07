@@ -285,20 +285,20 @@
 .btn-delete {
 	background: #0a0a0a;
 	border: 1px solid #27272a;
-	color: #ef4444;
+	color: #ff4d4d;
 }
 
 .btn-delete:hover {
-	background: rgba(239, 68, 68, 0.1);
-	border-color: rgba(239, 68, 68, 0.2);
-	color: #f87171;
+	background: rgba(255, 77, 77, 0.05);
+	border-color: rgba(255, 77, 77, 0.1);
+	color: #ffffff;
 }
 
 .btn-delete-active {
-	background: #ef4444 !important;
+	background: #ff4d4d !important;
 	color: white !important;
-	border-color: #ef4444 !important;
-	box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+	border-color: #ff4d4d !important;
+	box-shadow: 0 4px 12px rgba(255, 77, 77, 0.3);
 }
 
 .text-purple {

@@ -46,7 +46,7 @@ export class SavePrompt {
 			</div>
 			<div style="display: flex; gap: 8px; flex-direction: column;">
 				<button class="vaulton-save-btn" style="
-					background: #a855f7;
+					background: #9333ea;
 					color: white;
 					border: none;
 					border-radius: 6px;
@@ -107,10 +107,10 @@ export class SavePrompt {
 		) as HTMLElement;
 
 		saveBtn.addEventListener('mouseenter', () => {
-			saveBtn.style.background = '#9333ea';
+			saveBtn.style.background = '#7e22ce';
 		});
 		saveBtn.addEventListener('mouseleave', () => {
-			saveBtn.style.background = '#a855f7';
+			saveBtn.style.background = '#9333ea';
 		});
 
 		neverBtn.addEventListener('mouseenter', () => {

@@ -22,9 +22,7 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 						</div>
 					</div>
 
-					<div
-						class="action-item"
-						style="margin-top: 16px;">
+					<div class="action-item">
 						<div class="item-info">
 							<span class="item-label">Account Session</span>
 							<p class="item-desc">Securely terminate your current session.</p>
@@ -33,6 +31,34 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 							class="btn-logout"
 							(click)="showLogoutConfirm.set(true)">
 							Log Out
+						</button>
+					</div>
+
+					<div class="action-item">
+						<div class="item-info">
+							<span class="item-label">Logout Everywhere</span>
+							<p class="item-desc">
+								Invalidate all active sessions across all devices.
+							</p>
+						</div>
+						<button
+							class="btn-logout"
+							(click)="showLogoutAllConfirm.set(true)">
+							Log out All
+						</button>
+					</div>
+
+					<div class="action-item">
+						<div class="item-info">
+							<span class="item-label">Wipe Local Data</span>
+							<p class="item-desc">
+								Logout and delete all locally stored encrypted data.
+							</p>
+						</div>
+						<button
+							class="btn-logout"
+							(click)="showWipeConfirm.set(true)">
+							Wipe All
 						</button>
 					</div>
 				</div>
@@ -47,6 +73,26 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 			[isDanger]="true"
 			(confirm)="onLogout()"
 			(cancel)="showLogoutConfirm.set(false)">
+		</app-confirm-modal>
+
+		<app-confirm-modal
+			*ngIf="showLogoutAllConfirm()"
+			title="Logout All Devices"
+			message="This will terminate all active sessions including this one. You will need to log in again on all devices. Proceed?"
+			confirmLabel="Logout Everywhere"
+			[isDanger]="true"
+			(confirm)="onLogoutAll()"
+			(cancel)="showLogoutAllConfirm.set(false)">
+		</app-confirm-modal>
+
+		<app-confirm-modal
+			*ngIf="showWipeConfirm()"
+			title="Wipe Local Data"
+			message="This will log you out and PERMANENTLY delete all locally cached vault data and settings. Proceed with the wipe?"
+			confirmLabel="Wipe Everything"
+			[isDanger]="true"
+			(confirm)="onWipeAll()"
+			(cancel)="showWipeConfirm.set(false)">
 		</app-confirm-modal>
 	`,
 	styles: [
@@ -81,11 +127,17 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 				overflow-x: hidden;
 			}
 
+			.settings-section {
+				display: flex;
+				flex-direction: column;
+				gap: 16px;
+			}
+
 			.settings-section h3 {
 				color: #a78bfa;
 				font-size: 12px;
 				font-weight: 950;
-				margin: 0 0 4px 0;
+				margin: 0;
 				text-transform: uppercase;
 				letter-spacing: 0.15em;
 			}
@@ -145,7 +197,7 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 			.btn-logout {
 				background: #0a0a0a;
 				border: 1px solid #27272a;
-				color: #dc2626;
+				color: #ff4d4d;
 				padding: 10px 18px;
 				border-radius: 1rem;
 				font-size: 12px;
@@ -157,21 +209,34 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 			}
 
 			.btn-logout:hover {
-				background: rgba(220, 38, 38, 0.1);
-				border-color: rgba(220, 38, 38, 0.2);
-				color: #f87171;
+				background: rgba(255, 77, 77, 0.05);
+				border-color: rgba(255, 77, 77, 0.1);
+				color: #ffffff;
 				transform: translateY(-1px);
-				box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
+				box-shadow: 0 2px 8px rgba(255, 77, 77, 0.15);
 			}
 		`,
 	],
 })
 export class AccountComponent {
 	auth = inject(SessionService);
+
 	showLogoutConfirm = signal(false);
+	showLogoutAllConfirm = signal(false);
+	showWipeConfirm = signal(false);
 
 	async onLogout() {
 		this.showLogoutConfirm.set(false);
 		await this.auth.logout();
+	}
+
+	async onLogoutAll() {
+		this.showLogoutAllConfirm.set(false);
+		await this.auth.logoutAll();
+	}
+
+	async onWipeAll() {
+		this.showWipeConfirm.set(false);
+		await this.auth.wipeAllData();
 	}
 }

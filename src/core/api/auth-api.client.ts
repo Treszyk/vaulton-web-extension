@@ -107,3 +107,12 @@ export async function apiLogout(refreshToken: string): Promise<void> {
 		body: JSON.stringify({ RefreshToken: refreshToken }),
 	});
 }
+
+export async function apiLogoutAll(accessToken: string): Promise<void> {
+	await fetch(`${API_BASE_URL}/auth/ext/logout-all`, {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${accessToken}`,
+		},
+	});
+}

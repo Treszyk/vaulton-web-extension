@@ -223,15 +223,15 @@ import { CommonModule } from '@angular/common';
 			.btn-danger {
 				background: #0a0a0a;
 				border: 1px solid #27272a;
-				color: #dc2626;
+				color: #ff4d4d;
 			}
 
 			.btn-danger:hover {
-				background: rgba(220, 38, 38, 0.1);
-				border-color: rgba(220, 38, 38, 0.2);
-				color: #f87171;
+				background: rgba(255, 77, 77, 0.05);
+				border-color: rgba(255, 77, 77, 0.1);
+				color: #ffffff;
 				transform: translateY(-1px);
-				box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
+				box-shadow: 0 2px 8px rgba(255, 77, 77, 0.15);
 			}
 		`,
 	],

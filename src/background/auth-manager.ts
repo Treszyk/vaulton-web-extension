@@ -10,7 +10,12 @@ import {
 	ensureVaultSessionKey,
 } from '../core/crypto/crypto-core';
 import { getBaseDomain } from '../core/utils/domain';
-import { apiLogin, apiLogout, apiRefresh } from '../core/api/auth-api.client';
+import {
+	apiLogin,
+	apiLogout,
+	apiLogoutAll,
+	apiRefresh,
+} from '../core/api/auth-api.client';
 import { isTokenExpired } from '../core/auth/auth-utils';
 import { loadVault, saveVault } from '../core/vault/vault-storage';
 import {
@@ -188,6 +193,28 @@ export class BackgroundAuthManager {
 			}
 		}
 		await this.clearSession();
+	}
+
+	async logoutAll(): Promise<void> {
+		const keys = StorageCore.KEYS;
+		const { AccessToken } = await StorageCore.getMultiple([keys.ACCESS_TOKEN]);
+
+		if (AccessToken) {
+			try {
+				await apiLogoutAll(AccessToken);
+			} catch (e) {
+				console.warn('[Background] Logout All API failed', e);
+			}
+		}
+		await this.clearSession();
+	}
+
+	async wipeAllData(): Promise<void> {
+		await this.logout();
+
+		console.log('[Background] Performing TOTAL WIPE of all local data...');
+		await StorageCore.clear('local');
+		await StorageCore.clear('session');
 	}
 
 	public async saveSession(

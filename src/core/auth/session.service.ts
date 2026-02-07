@@ -92,6 +92,16 @@ export class SessionService {
 		await this.syncStateFromStorage();
 	}
 
+	async logoutAll(): Promise<void> {
+		await sendCommand({ type: 'LOGOUT_ALL' });
+		await this.syncStateFromStorage();
+	}
+
+	async wipeAllData(): Promise<void> {
+		await sendCommand({ type: 'WIPE_ALL' });
+		await this.syncStateFromStorage();
+	}
+
 	async refresh(): Promise<void> {
 		const res = await sendCommand({ type: 'REFRESH' });
 		if (!res.success) throw new Error(res.error);

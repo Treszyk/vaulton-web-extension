@@ -13,6 +13,8 @@ export type BackgroundAction =
 			};
 	  }
 	| { type: 'LOGOUT' }
+	| { type: 'LOGOUT_ALL' }
+	| { type: 'WIPE_ALL' }
 	| { type: 'REFRESH' }
 	| { type: 'SYNC_VAULT'; payload: { force?: boolean } }
 	| { type: 'CLEAR_SESSION' }
