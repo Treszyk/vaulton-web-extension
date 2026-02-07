@@ -11,6 +11,10 @@ const auth = new BackgroundAuthManager();
 
 console.log('[Vaulton Background] Service Worker Initializing...');
 
+auth.syncVault().catch((err) => {
+	console.error('[Vaulton Background] Initial vault sync failed:', err);
+});
+
 browserApi.runtime.onInstalled.addListener(() => {
 	console.log('[Vaulton Background] Installed/Updated: Setting up alarms.');
 	browserApi.alarms.clearAll();

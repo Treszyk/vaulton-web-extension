@@ -156,8 +156,19 @@ export class BackgroundAuthManager {
 				data.RefreshExpiresAt,
 			);
 			return true;
-		} catch (error) {
+		} catch (error: any) {
 			console.error('[BackgroundAuthManager] Refresh error:', error);
+
+			const msg = error.message || '';
+			if (
+				msg.includes('401') ||
+				msg.includes('403') ||
+				msg.toLowerCase().includes('revoked') ||
+				msg.toLowerCase().includes('invalid')
+			) {
+				await this.clearSession();
+			}
+
 			return false;
 		}
 	}
