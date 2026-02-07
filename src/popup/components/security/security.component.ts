@@ -4,7 +4,7 @@ import { SessionService } from '../../../core/auth/session.service';
 import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component';
 
 @Component({
-	selector: 'app-settings',
+	selector: 'app-security',
 	standalone: true,
 	imports: [CommonModule, ConfirmModalComponent],
 	template: `
@@ -19,6 +19,10 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 							*ngFor="let option of lockoutOptions"
 							class="selection-item"
 							[class.is-active]="auth.lockoutStrategy() === option.value"
+							[class.is-danger]="
+								auth.lockoutStrategy() === option.value &&
+								option.value === 'Persistent'
+							"
 							(click)="onStrategyChange(option.value)">
 							<div class="item-info">
 								<span class="item-label">{{ option.label }}</span>
@@ -39,21 +43,6 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 										d="M5 13l4 4L19 7" />
 								</svg>
 							</div>
-						</button>
-					</div>
-				</div>
-
-				<div class="settings-section">
-					<h3>Account</h3>
-					<div class="action-item">
-						<div class="item-info">
-							<span class="item-label">Account Session</span>
-							<p class="item-desc">Securely terminate your current session.</p>
-						</div>
-						<button
-							class="btn-logout"
-							(click)="showLogoutConfirm.set(true)">
-							Log Out
 						</button>
 					</div>
 				</div>
@@ -97,13 +86,13 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 		</div>
 
 		<app-confirm-modal
-			*ngIf="showLogoutConfirm()"
-			title="Confirm Logout"
-			message="This will securely clear your session and vault access keys. Do you want to proceed?"
-			confirmLabel="Logout Now"
+			*ngIf="showPersistentConfirm()"
+			title="Unsafe Strategy"
+			message="Persistent mode keeps your vault keys in system storage even after the browser is closed. This is significantly less secure. Do you want to proceed?"
+			confirmLabel="Enable Anyway"
 			[isDanger]="true"
-			(confirm)="onLogout()"
-			(cancel)="showLogoutConfirm.set(false)">
+			(confirm)="onConfirmPersistent()"
+			(cancel)="showPersistentConfirm.set(false)">
 		</app-confirm-modal>
 	`,
 	styles: [
@@ -184,6 +173,15 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 				background: rgba(124, 58, 237, 0.05);
 				border-color: #7c3aed;
 				box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+			}
+
+			.selection-item.is-active.is-danger {
+				background: rgba(220, 38, 38, 0.05);
+				border-color: #dc2626;
+			}
+
+			.selection-item.is-danger .item-check {
+				color: #dc2626;
 			}
 
 			.item-info {
@@ -324,9 +322,11 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 		`,
 	],
 })
-export class SettingsComponent {
+export class SecurityComponent {
 	auth = inject(SessionService);
-	showLogoutConfirm = signal(false);
+
+	showPersistentConfirm = signal(false);
+	pendingStrategy = signal<string | null>(null);
 
 	readonly lockoutOptions = [
 		{
@@ -352,17 +352,29 @@ export class SettingsComponent {
 		{
 			value: 'Persistent',
 			label: 'Never Lock',
-			desc: '⚠️ Keys persist in system storage (Less secure).',
+			desc: 'Keys persist in system storage (Less secure).',
 		},
 	];
 
 	async onStrategyChange(value: string) {
+		if (
+			value === 'Persistent' &&
+			this.auth.lockoutStrategy() !== 'Persistent'
+		) {
+			this.pendingStrategy.set(value);
+			this.showPersistentConfirm.set(true);
+			return;
+		}
 		await this.auth.setLockoutStrategy(value);
 	}
 
-	async onLogout() {
-		this.showLogoutConfirm.set(false);
-		await this.auth.logout();
+	async onConfirmPersistent() {
+		const val = this.pendingStrategy();
+		if (val) {
+			await this.auth.setLockoutStrategy(val);
+		}
+		this.showPersistentConfirm.set(false);
+		this.pendingStrategy.set(null);
 	}
 
 	async onRemoveExclusion(domain: string) {

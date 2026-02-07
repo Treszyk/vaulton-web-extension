@@ -52,16 +52,16 @@ import { CommonModule } from '@angular/common';
 
 				<div class="modal-footer">
 					<button
-						class="footer-btn btn-cancel"
-						(click)="onCancel()">
-						Cancel
-					</button>
-					<button
 						class="footer-btn"
 						[class.btn-confirm]="!isDanger"
 						[class.btn-danger]="isDanger"
 						(click)="onConfirm()">
 						{{ confirmLabel }}
+					</button>
+					<button
+						class="footer-btn btn-cancel"
+						(click)="onCancel()">
+						Cancel
 					</button>
 				</div>
 			</div>
@@ -153,9 +153,9 @@ import { CommonModule } from '@angular/common';
 			}
 
 			.confirm-icon.danger {
-				color: #ef4444;
-				background: rgba(239, 68, 68, 0.1);
-				border-color: rgba(239, 68, 68, 0.2);
+				color: #dc2626;
+				background: rgba(220, 38, 38, 0.1);
+				border-color: rgba(220, 38, 38, 0.2);
 			}
 
 			.confirm-icon svg {
@@ -204,28 +204,34 @@ import { CommonModule } from '@angular/common';
 
 			.btn-cancel:hover {
 				background: #27272a;
+				transform: translateY(-1px);
 			}
 
 			.btn-confirm {
-				background: #7c3aed;
-				color: white;
+				background: #0a0a0a;
+				border: 1px solid #27272a;
+				color: #a78bfa;
 			}
 
 			.btn-confirm:hover {
-				background: #6d28d9;
+				background: rgba(124, 58, 237, 0.1);
+				border-color: rgba(124, 58, 237, 0.2);
 				transform: translateY(-1px);
-				box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+				box-shadow: 0 2px 8px rgba(124, 58, 237, 0.15);
 			}
 
 			.btn-danger {
-				background: #ef4444;
-				color: white;
+				background: #0a0a0a;
+				border: 1px solid #27272a;
+				color: #dc2626;
 			}
 
 			.btn-danger:hover {
-				background: #dc2626;
+				background: rgba(220, 38, 38, 0.1);
+				border-color: rgba(220, 38, 38, 0.2);
+				color: #f87171;
 				transform: translateY(-1px);
-				box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+				box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
 			}
 		`,
 	],
