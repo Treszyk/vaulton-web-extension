@@ -53,13 +53,23 @@ export async function fetchClient<T>(
 						[keys.REFRESH_EXPIRES_AT]: refreshRes.RefreshExpiresAt,
 					});
 					return refreshRes.AccessToken;
-				} catch (e) {
+				} catch (e: any) {
 					console.error('Refresh failed', e);
-					await StorageCore.removeMultiple([
-						keys.ACCESS_TOKEN,
-						keys.REFRESH_TOKEN,
-						keys.VAULT_KEY,
-					]);
+
+					const msg = e.message || '';
+					const isAuthError =
+						msg.includes('401') ||
+						msg.includes('403') ||
+						msg.toLowerCase().includes('invalid') ||
+						msg.toLowerCase().includes('revoked');
+
+					if (isAuthError) {
+						await StorageCore.removeMultiple([
+							keys.ACCESS_TOKEN,
+							keys.REFRESH_TOKEN,
+							keys.VAULT_KEY,
+						]);
+					}
 					throw e;
 				} finally {
 					refreshPromise = null;
