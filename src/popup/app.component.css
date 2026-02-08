@@ -163,7 +163,7 @@ main.main-full {
 	font-size: 10px;
 	text-transform: uppercase;
 	letter-spacing: 2px;
-	color: #a1a1aa;
+	color: #d4d4d8;
 	margin: 4px 0 0 0;
 	font-weight: 600;
 }
@@ -174,7 +174,7 @@ main.main-full {
 	font-weight: 800;
 	text-transform: uppercase;
 	letter-spacing: 1px;
-	color: #a1a1aa;
+	color: #d4d4d8;
 }
 
 .status-indicator.active {
@@ -188,7 +188,7 @@ footer {
 
 .footer-note {
 	font-size: 10px;
-	color: #a1a1aa;
+	color: #d4d4d8;
 	text-transform: uppercase;
 	letter-spacing: 1px;
 }

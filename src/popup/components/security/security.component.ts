@@ -143,7 +143,7 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 			}
 
 			.section-desc {
-				color: #a1a1aa;
+				color: #d4d4d8;
 				font-size: 11px;
 				font-weight: 600;
 				margin: 0;
@@ -204,7 +204,7 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 			}
 
 			.item-desc {
-				color: #a1a1aa;
+				color: #d4d4d8;
 				font-size: 11px;
 				margin: 0;
 				font-weight: 600;
@@ -270,7 +270,7 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 			.btn-remove {
 				background: transparent;
 				border: none;
-				color: #71717a;
+				color: #a1a1aa;
 				padding: 6px;
 				cursor: pointer;
 				border-radius: 6px;
@@ -296,7 +296,7 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 				border-radius: 0.75rem;
 				padding: 16px;
 				text-align: center;
-				color: #52525b;
+				color: #d4d4d8;
 				font-size: 11px;
 				font-weight: 500;
 			}

@@ -181,7 +181,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: #a1a1aa;
+	color: #d4d4d8;
 	transition: all 0.3s;
 }
 
@@ -210,14 +210,14 @@
 }
 
 .ghost-subtitle {
-	color: #a1a1aa;
+	color: #d4d4d8;
 	font-size: 11px;
 	font-weight: 500;
 	letter-spacing: 0.01em;
 }
 
 .record-subtitle {
-	color: #a1a1aa;
+	color: #d4d4d8;
 	font-size: 12px;
 	white-space: nowrap;
 	overflow: hidden;
@@ -243,7 +243,7 @@
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	color: #a1a1aa;
+	color: #d4d4d8;
 	text-align: center;
 	gap: 12px;
 }

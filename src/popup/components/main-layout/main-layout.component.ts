@@ -123,7 +123,7 @@ type Tab = 'vault' | 'security' | 'account';
 				font-weight: 900;
 				margin: 0;
 				letter-spacing: -1.5px;
-				background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
+				background: linear-gradient(135deg, #fff 0%, #d4d4d8 100%);
 				-webkit-background-clip: text;
 				-webkit-text-fill-color: transparent;
 			}
@@ -169,7 +169,7 @@ type Tab = 'vault' | 'security' | 'account';
 				justify-content: center;
 				gap: 4px;
 				padding: 10px 0;
-				color: #a1a1aa;
+				color: #d4d4d8;
 				cursor: pointer;
 				transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 				position: relative;
@@ -222,7 +222,7 @@ type Tab = 'vault' | 'security' | 'account';
 				flex-direction: column;
 				align-items: center;
 				gap: 16px;
-				color: #a1a1aa;
+				color: #d4d4d8;
 				text-align: center;
 				padding: 40px;
 			}
@@ -230,7 +230,7 @@ type Tab = 'vault' | 'security' | 'account';
 			.large-icon {
 				width: 64px;
 				height: 64px;
-				color: #a1a1aa;
+				color: #d4d4d8;
 			}
 
 			.empty-state h3 {
@@ -242,7 +242,7 @@ type Tab = 'vault' | 'security' | 'account';
 			.refresh-btn {
 				background: transparent;
 				border: none;
-				color: #a1a1aa;
+				color: #d4d4d8;
 				cursor: pointer;
 				padding: 8px;
 				border-radius: 50%;

@@ -156,7 +156,7 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 			}
 
 			.item-desc {
-				color: #a1a1aa;
+				color: #d4d4d8;
 				font-size: 11px;
 				margin: 0;
 				font-weight: 600;

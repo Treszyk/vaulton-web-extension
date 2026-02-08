@@ -92,7 +92,7 @@
 
 .record-website {
 	font-size: 0.625rem;
-	color: #a1a1aa;
+	color: #d4d4d8;
 	text-transform: lowercase;
 	letter-spacing: 0.05em;
 	margin-top: 2px;
@@ -162,7 +162,7 @@
 .field-label {
 	font-size: 0.625rem;
 	font-weight: 950;
-	color: #a1a1aa;
+	color: #d4d4d8;
 	text-transform: uppercase;
 	letter-spacing: 0.15em;
 }
@@ -197,7 +197,7 @@
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
-	color: #a1a1aa;
+	color: #d4d4d8;
 	cursor: pointer;
 	transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 	font-size: 0.625rem;

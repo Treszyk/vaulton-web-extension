@@ -88,13 +88,13 @@ export class CredentialPicker {
 				</svg>
 			</div>
 			<div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">Vault is Locked</div>
-			<div style="font-size: 13px; color: #a1a1aa; margin-bottom: 16px;">Please log in to the Vaulton extension to access your credentials.</div>
+			<div style="font-size: 13px; color: #d4d4d8; margin-bottom: 16px;">Please log in to the Vaulton extension to access your credentials.</div>
 		`;
 
 		const loginNote = document.createElement('div');
 		loginNote.style.cssText = `
 			font-size: 11px;
-			color: #71717a;
+			color: #a1a1aa;
 			background: #27272a;
 			padding: 8px;
 			border-radius: 6px;
@@ -180,7 +180,7 @@ export class CredentialPicker {
 
 		if (credentials.length === 0 && !isRegistration) {
 			listContainer.innerHTML = `
-				<div style="padding: 16px; text-align: center; color: #a1a1aa; font-size: 13px;">
+				<div style="padding: 16px; text-align: center; color: #d4d4d8; font-size: 13px;">
 					No credentials found${domain ? ' for this site' : ''}
 				</div>
 			`;
@@ -251,7 +251,7 @@ export class CredentialPicker {
 
 		header.innerHTML = `
 			<div style="flex: 1;">
-				<div style="color: #a1a1aa; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">
+				<div style="color: #d4d4d8; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">
 					Credentials for
 				</div>
 				<div style="color: white; font-size: 13px; font-weight: 600;">
@@ -367,7 +367,7 @@ export class CredentialPicker {
 			<div style="color: white; font-size: 14px; font-weight: 600; margin-bottom: 2px;">
 				${escapeHtml(cred.title)}
 			</div>
-			<div style="color: #a1a1aa; font-size: 12px;">
+			<div style="color: #d4d4d8; font-size: 12px;">
 				${escapeHtml(cred.username)}
 			</div>
 		`;
