@@ -288,7 +288,7 @@ export class CredentialPicker {
 		if (credentials.length === 0 && !isRegistration) {
 			listContainer.innerHTML = `
 				<div style="padding: 16px; text-align: center; color: #d4d4d8; font-size: 13px;">
-					No credentials found${domain ? ' for this site' : ''}
+					No credentials found${domain ? ` for <strong>${escapeHtml(domain)}</strong>` : ''}
 				</div>
 			`;
 		} else {
