@@ -1,4 +1,5 @@
 import { escapeHtml } from './dom-utils';
+import { OverlayManager } from './overlay-manager';
 
 export interface CredentialOption {
 	id: string;
@@ -10,6 +11,10 @@ export interface CredentialOption {
 
 export class CredentialPicker {
 	private element: HTMLElement | null = null;
+	private repositionListener: (() => void) | null = null;
+	private intersectionObserver: IntersectionObserver | null = null;
+	private initialSide: 'top' | 'bottom' = 'bottom';
+	private initialMaxHeight: number = 420;
 
 	show(
 		credentials: CredentialOption[],
@@ -30,10 +35,13 @@ export class CredentialPicker {
 			domain,
 			isRegistration,
 		);
-		this.positionPicker(picker, targetInput);
-
-		document.body.appendChild(picker);
+		const shadow = OverlayManager.getShadowRoot();
+		shadow.appendChild(picker);
 		this.element = picker;
+
+		this.determineInitialPosition(targetInput);
+		this.setupStickyListeners(picker, targetInput);
+		this.positionPicker(picker, targetInput);
 
 		const handleOutsideClick = (e: MouseEvent) => {
 			if (!e.composedPath().includes(picker)) {
@@ -50,9 +58,32 @@ export class CredentialPicker {
 	}
 
 	hide(): void {
-		if (this.element) {
-			this.element.remove();
+		if (this.repositionListener) {
+			window.removeEventListener('scroll', this.repositionListener, {
+				capture: true,
+			});
+			window.removeEventListener('resize', this.repositionListener, {
+				capture: true,
+			});
+			this.repositionListener = null;
+		}
+
+		if (this.intersectionObserver) {
+			this.intersectionObserver.disconnect();
+			this.intersectionObserver = null;
+		}
+
+		const el = this.element;
+		if (el) {
 			this.element = null;
+			el.style.setProperty(
+				'animation',
+				'vaultonPickerSlideOut 0.2s ease-in forwards',
+				'important',
+			);
+			el.addEventListener('animationend', () => el.remove(), { once: true });
+			// Safety timeout
+			setTimeout(() => el.remove(), 250);
 		}
 	}
 
@@ -69,7 +100,6 @@ export class CredentialPicker {
 			padding: 16px !important;
 			margin: 0 !important;
 			box-sizing: border-box !important;
-			min-width: 280px !important;
 			z-index: 999999 !important;
 			box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
 			font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
@@ -103,9 +133,13 @@ export class CredentialPicker {
 			'Tip: Click the Vaulton icon in your browser toolbar to unlock.';
 		picker.appendChild(loginNote);
 
-		this.positionPicker(picker, targetInput);
-		document.body.appendChild(picker);
+		const shadow = OverlayManager.getShadowRoot();
+		shadow.appendChild(picker);
 		this.element = picker;
+
+		this.determineInitialPosition(targetInput);
+		this.setupStickyListeners(picker, targetInput);
+		this.positionPicker(picker, targetInput);
 
 		const handleOutsideClick = (e: MouseEvent) => {
 			if (!e.composedPath().includes(picker)) {
@@ -134,7 +168,6 @@ export class CredentialPicker {
 			padding: 16px !important;
 			margin: 0 !important;
 			box-sizing: border-box !important;
-			min-width: 280px !important;
 			z-index: 999999 !important;
 			box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
 			font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
@@ -172,9 +205,13 @@ export class CredentialPicker {
 		refreshBtn.onclick = () => window.location.reload();
 		picker.appendChild(refreshBtn);
 
-		this.positionPicker(picker, targetInput);
-		document.body.appendChild(picker);
+		const shadow = OverlayManager.getShadowRoot();
+		shadow.appendChild(picker);
 		this.element = picker;
+
+		this.determineInitialPosition(targetInput);
+		this.setupStickyListeners(picker, targetInput);
+		this.positionPicker(picker, targetInput);
 
 		const handleOutsideClick = (e: MouseEvent) => {
 			if (!e.composedPath().includes(picker)) {
@@ -273,34 +310,6 @@ export class CredentialPicker {
 		}
 
 		picker.appendChild(listContainer);
-
-		const style = document.createElement('style');
-		style.textContent = `
-			@keyframes vaultonPickerSlideIn {
-				from {
-					opacity: 0;
-					transform: translateY(-8px);
-				}
-				to {
-					opacity: 1;
-					transform: translateY(0);
-				}
-			}
-			.vaulton-credential-picker::-webkit-scrollbar {
-				width: 6px;
-			}
-			.vaulton-credential-picker::-webkit-scrollbar-track {
-				background: transparent;
-			}
-			.vaulton-credential-picker::-webkit-scrollbar-thumb {
-				background: #27272a;
-				border-radius: 99px;
-			}
-			.vaulton-credential-picker::-webkit-scrollbar-thumb:hover {
-				background: #3f3f46;
-			}
-		`;
-		document.head.appendChild(style);
 
 		return picker;
 	}
@@ -419,6 +428,31 @@ export class CredentialPicker {
 		return item;
 	}
 
+	private setupStickyListeners(
+		picker: HTMLElement,
+		targetInput: HTMLInputElement,
+	): void {
+		this.repositionListener = () => this.positionPicker(picker, targetInput);
+		window.addEventListener('scroll', this.repositionListener, {
+			capture: true,
+			passive: true,
+		});
+		window.addEventListener('resize', this.repositionListener, {
+			capture: true,
+			passive: true,
+		});
+
+		this.intersectionObserver = new IntersectionObserver(
+			(entries) => {
+				if (!entries[0].isIntersecting && this.element) {
+					this.hide();
+				}
+			},
+			{ threshold: 0 },
+		);
+		this.intersectionObserver.observe(targetInput);
+	}
+
 	private createCredentialItem(
 		cred: CredentialOption,
 		onSelect: (cred: CredentialOption) => void,
@@ -459,44 +493,46 @@ export class CredentialPicker {
 		return item;
 	}
 
-	private positionPicker(
-		picker: HTMLElement,
-		targetInput: HTMLInputElement,
-	): void {
+	private determineInitialPosition(targetInput: HTMLInputElement): void {
 		const rect = targetInput.getBoundingClientRect();
 		const spaceBelow = window.innerHeight - rect.bottom;
 		const spaceAbove = rect.top;
 
 		if (spaceBelow < 250 && spaceAbove > spaceBelow) {
-			picker.style.setProperty(
-				'bottom',
-				`${window.innerHeight - rect.top - window.scrollY + 4}px`,
-				'important',
-			);
-			picker.style.setProperty(
-				'max-height',
-				`${spaceAbove - 10}px`,
-				'important',
-			);
+			this.initialSide = 'top';
+			this.initialMaxHeight = spaceAbove - 10;
 		} else {
-			picker.style.setProperty(
-				'top',
-				`${rect.bottom + window.scrollY + 4}px`,
-				'important',
-			);
-			const potentialHeight = Math.min(420, spaceBelow - 10);
-			picker.style.setProperty(
-				'max-height',
-				`${potentialHeight}px`,
-				'important',
-			);
+			this.initialSide = 'bottom';
+			this.initialMaxHeight = Math.min(420, spaceBelow - 10);
 		}
+	}
 
+	private positionPicker(
+		picker: HTMLElement,
+		targetInput: HTMLInputElement,
+	): void {
+		const rect = targetInput.getBoundingClientRect();
+
+		picker.style.setProperty('position', 'fixed', 'important');
 		picker.style.setProperty(
-			'left',
-			`${rect.left + window.scrollX}px`,
+			'max-height',
+			`${this.initialMaxHeight}px`,
 			'important',
 		);
+
+		if (this.initialSide === 'top') {
+			picker.style.setProperty(
+				'bottom',
+				`${window.innerHeight - rect.top + 4}px`,
+				'important',
+			);
+			picker.style.removeProperty('top');
+		} else {
+			picker.style.setProperty('top', `${rect.bottom + 4}px`, 'important');
+			picker.style.removeProperty('bottom');
+		}
+
+		picker.style.setProperty('left', `${rect.left}px`, 'important');
 		picker.style.setProperty('width', `${rect.width}px`, 'important');
 	}
 }

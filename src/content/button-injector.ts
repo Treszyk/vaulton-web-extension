@@ -1,3 +1,5 @@
+import { OverlayManager } from './overlay-manager';
+
 export interface VaultonButton {
 	element: HTMLElement;
 	input: HTMLInputElement;
@@ -6,58 +8,46 @@ export interface VaultonButton {
 
 export class ButtonInjector {
 	private buttons: Map<HTMLInputElement, VaultonButton> = new Map();
-	private static shadowRoot: ShadowRoot | null = null;
 
 	private static getOverlayHost(): ShadowRoot {
-		if (this.shadowRoot) return this.shadowRoot;
+		const shadow = OverlayManager.getShadowRoot();
 
-		const host = document.createElement('div');
-		host.id = 'vaulton-overlay-host';
-		host.style.cssText = `
-			position: fixed !important;
-			top: 0 !important;
-			left: 0 !important;
-			width: 0 !important;
-			height: 0 !important;
-			z-index: 2147483647 !important;
-			pointer-events: none !important;
-		`;
-		document.body.appendChild(host);
-		this.shadowRoot = host.attachShadow({ mode: 'open' });
+		if (!shadow.querySelector('.vaulton-autofill-btn-style')) {
+			const style = document.createElement('style');
+			style.className = 'vaulton-autofill-btn-style';
+			style.textContent = `
+				.vaulton-autofill-btn {
+					display: none;
+					position: fixed !important;
+					width: 28px !important;
+					height: 28px !important;
+					padding: 0 !important;
+					background: white !important;
+					border: 1.5px solid #a855f7 !important;
+					border-radius: 6px !important;
+					cursor: pointer !important;
+					z-index: 2147483647 !important;
+					transition: border-color 0.2s, transform 0.2s !important;
+					pointer-events: auto !important;
+					box-sizing: border-box !important;
+					box-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
+				}
+				.vaulton-autofill-btn:hover {
+					border-color: #c084fc !important;
+					transform: scale(1.1) !important;
+				}
+				.vaulton-autofill-btn img {
+					width: 100% !important;
+					height: 100% !important;
+					display: block !important;
+					object-fit: contain !important;
+					pointer-events: none !important;
+				}
+			`;
+			shadow.appendChild(style);
+		}
 
-		const style = document.createElement('style');
-		style.textContent = `
-			.vaulton-autofill-btn {
-				display: none;
-				position: fixed !important;
-				width: 28px !important;
-				height: 28px !important;
-				padding: 0 !important;
-				background: white !important;
-				border: 1.5px solid #a855f7 !important;
-				border-radius: 6px !important;
-				cursor: pointer !important;
-				z-index: 2147483647 !important;
-				transition: border-color 0.2s, transform 0.2s !important;
-				pointer-events: auto !important;
-				box-sizing: border-box !important;
-				box-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
-			}
-			.vaulton-autofill-btn:hover {
-				border-color: #c084fc !important;
-				transform: scale(1.1) !important;
-			}
-			.vaulton-autofill-btn img {
-				width: 100% !important;
-				height: 100% !important;
-				display: block !important;
-				object-fit: contain !important;
-				pointer-events: none !important;
-			}
-		`;
-		this.shadowRoot.appendChild(style);
-
-		return this.shadowRoot;
+		return shadow;
 	}
 
 	injectButton(
@@ -101,12 +91,7 @@ export class ButtonInjector {
 	removeAll(): void {
 		this.buttons.forEach((button) => button.cleanup());
 		this.buttons.clear();
-
-		if (ButtonInjector.shadowRoot) {
-			const styles = ButtonInjector.shadowRoot.querySelectorAll('style');
-			ButtonInjector.shadowRoot.innerHTML = '';
-			styles.forEach((s) => ButtonInjector.shadowRoot?.appendChild(s));
-		}
+		OverlayManager.clear();
 	}
 
 	private createButton(onClick: () => void): HTMLElement {

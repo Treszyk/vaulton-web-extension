@@ -1,4 +1,5 @@
 import { escapeHtml } from './dom-utils';
+import { OverlayManager } from './overlay-manager';
 
 export type SaveAction = 'save' | 'update' | 'never' | 'not-now';
 
@@ -85,21 +86,6 @@ export class SavePrompt {
 			</div>
 		`;
 
-		const style = document.createElement('style');
-		style.textContent = `
-			@keyframes vaultonSlideIn {
-				from {
-					opacity: 0;
-					transform: translateX(100px);
-				}
-				to {
-					opacity: 1;
-					transform: translateX(0);
-				}
-			}
-		`;
-		document.head.appendChild(style);
-
 		const saveBtn = prompt.querySelector('.vaulton-save-btn') as HTMLElement;
 		const neverBtn = prompt.querySelector('.vaulton-never-btn') as HTMLElement;
 		const notNowBtn = prompt.querySelector(
@@ -146,7 +132,8 @@ export class SavePrompt {
 			this.hide();
 		});
 
-		document.body.appendChild(prompt);
+		const shadow = OverlayManager.getShadowRoot();
+		shadow.appendChild(prompt);
 		this.element = prompt;
 
 		this.timeoutId = window.setTimeout(() => {
@@ -156,9 +143,16 @@ export class SavePrompt {
 	}
 
 	hide(): void {
-		if (this.element) {
-			this.element.remove();
+		const el = this.element;
+		if (el) {
 			this.element = null;
+			el.style.setProperty(
+				'animation',
+				'vaultonSlideOut 0.3s ease-in forwards',
+				'important',
+			);
+			el.addEventListener('animationend', () => el.remove(), { once: true });
+			setTimeout(() => el.remove(), 350);
 		}
 		if (this.timeoutId !== null) {
 			clearTimeout(this.timeoutId);
