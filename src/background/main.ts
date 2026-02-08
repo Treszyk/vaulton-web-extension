@@ -1,5 +1,6 @@
 /// <reference types="chrome"/>
 import { BackgroundAuthManager } from './auth-manager';
+import { THROTTLES } from '../core/config/throttles';
 import { browserApi } from '../core/storage/storage-core';
 import { BackgroundAction, BackgroundResponse } from '../core/messaging';
 import { loadVault } from '../core/vault/vault-storage';
@@ -11,19 +12,21 @@ const auth = new BackgroundAuthManager();
 
 console.log('[Vaulton Background] Service Worker Initializing...');
 
-auth.syncVault().catch((err) => {
+auth.syncVault(false, THROTTLES.VAULT_SYNC).catch((err) => {
 	console.error('[Vaulton Background] Initial vault sync failed:', err);
 });
 
 browserApi.runtime.onInstalled.addListener(() => {
 	console.log('[Vaulton Background] Installed/Updated: Setting up alarms.');
 	browserApi.alarms.clearAll();
-	browserApi.alarms.create('vault-sync', { periodInMinutes: 15 });
+	browserApi.alarms.create('vault-sync', {
+		periodInMinutes: THROTTLES.BACKGROUND_SYNC_INTERVAL_MINUTES,
+	});
 });
 
 browserApi.alarms.onAlarm.addListener((alarm: any) => {
 	if (alarm.name === 'vault-sync') {
-		auth.syncVault();
+		auth.syncVault(true);
 	} else if (alarm.name === 'auto-lock') {
 		console.log('[Background] Auto-lock triggered. Logging out.');
 		auth.logout();
@@ -93,7 +96,12 @@ async function handleAction(action: BackgroundAction): Promise<any> {
 		case 'REFRESH':
 			return auth.refreshTokens();
 		case 'SYNC_VAULT':
-			return auth.syncVault(action.payload?.force);
+			return auth.syncVault(
+				action.payload?.force,
+				action.payload?.force ? 0 : THROTTLES.VAULT_SYNC,
+			);
+		case 'VERIFY_SESSION':
+			return auth.verifySession(action.payload.throttleMs);
 		case 'CLEAR_SESSION':
 			return auth.clearSession();
 		case 'PRE_REGISTER':
@@ -141,6 +149,11 @@ async function getCredentialsForDomain(
 ): Promise<{ credentials: any[]; locked: boolean }> {
 	try {
 		if (await auth.isLocked()) {
+			return { credentials: [], locked: true };
+		}
+
+		const isValid = await auth.verifySession(THROTTLES.SESSION_SECURITY_CHECK);
+		if (!isValid) {
 			return { credentials: [], locked: true };
 		}
 

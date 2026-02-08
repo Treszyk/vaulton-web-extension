@@ -28,7 +28,8 @@ export async function fetchClient<T>(
 	if (response.status === 401) {
 		const refreshToken = await StorageCore.get(StorageCore.KEYS.REFRESH_TOKEN);
 		if (!refreshToken) {
-			throw new Error('Session expired');
+			await StorageCore.clearSession();
+			throw new Error('Session expired: No refresh token');
 		}
 
 		if (!refreshPromise) {
@@ -41,9 +42,10 @@ export async function fetchClient<T>(
 
 					if (isTokenExpired(refreshExpiresAt)) {
 						console.warn(
-							'Local Refresh check: Token expired. Skipping API call.',
+							'[FetchClient] Local Refresh check: Token expired. Skipping API call.',
 						);
-						throw new Error('Session expired locally');
+						await StorageCore.clearSession();
+						throw new Error('Session expired: Local check');
 					}
 
 					const refreshRes = await apiRefresh(refreshToken);
@@ -54,21 +56,18 @@ export async function fetchClient<T>(
 					});
 					return refreshRes.AccessToken;
 				} catch (e: any) {
-					console.error('Refresh failed', e);
+					console.error('[FetchClient] Refresh failed:', e);
 
 					const msg = e.message || '';
 					const isAuthError =
 						msg.includes('401') ||
 						msg.includes('403') ||
 						msg.toLowerCase().includes('invalid') ||
-						msg.toLowerCase().includes('revoked');
+						msg.toLowerCase().includes('revoked') ||
+						msg.toLowerCase().includes('expired');
 
 					if (isAuthError) {
-						await StorageCore.removeMultiple([
-							keys.ACCESS_TOKEN,
-							keys.REFRESH_TOKEN,
-							keys.VAULT_KEY,
-						]);
+						await StorageCore.clearSession();
 					}
 					throw e;
 				} finally {

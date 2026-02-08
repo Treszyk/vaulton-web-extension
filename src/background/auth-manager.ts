@@ -1,4 +1,3 @@
-import { API_BASE_URL } from '../config';
 import { StorageCore } from '../core/storage/storage-core';
 import {
 	importVaultKeys,
@@ -14,81 +13,85 @@ import {
 	apiLogin,
 	apiLogout,
 	apiLogoutAll,
-	apiRefresh,
+	apiAuthMe,
 } from '../core/api/auth-api.client';
 import { isTokenExpired } from '../core/auth/auth-utils';
 import { loadVault, saveVault } from '../core/vault/vault-storage';
 import {
 	apiCreateEntry,
+	apiListEntries,
 	apiPreCreateEntry,
 	apiUpdateEntry,
 } from '../core/api/vault-api.client';
 
 export class BackgroundAuthManager {
-	async syncVault(_force = false): Promise<boolean> {
-		const result = await this.trySyncVault();
-		if (result === 'unauthorized') {
-			const refreshed = await this.refreshTokens();
-			if (refreshed) {
-				const retry = await this.trySyncVault();
-				return retry === true;
-			} else {
-				return false;
+	async syncVault(force = false, throttleMs = 300000): Promise<boolean> {
+		if (!force) {
+			const lastSync = await StorageCore.get(StorageCore.KEYS.LAST_SYNC_TIME);
+			if (lastSync && Date.now() - lastSync < throttleMs) {
+				console.log('[Background] Sync throttled.');
+				return true;
 			}
 		}
-		return result === true;
+
+		try {
+			const result = await this.trySyncVault();
+			if (result) {
+				await StorageCore.set(StorageCore.KEYS.LAST_SYNC_TIME, Date.now());
+			}
+			return result;
+		} catch (e) {
+			console.error('[Background] Sync failed:', e);
+			return false;
+		}
 	}
 
-	private async trySyncVault(): Promise<boolean | 'unauthorized'> {
-		const keys = StorageCore.KEYS;
-		const { AccessToken } = await StorageCore.getMultiple([keys.ACCESS_TOKEN]);
-		if (!AccessToken) return false;
+	async verifySession(throttleMs = 300000): Promise<boolean> {
+		const lastVerify = await StorageCore.get(StorageCore.KEYS.LAST_VERIFY_TIME);
+		if (lastVerify && Date.now() - lastVerify < throttleMs) {
+			return true;
+		}
 
+		try {
+			await apiAuthMe();
+			await StorageCore.set(StorageCore.KEYS.LAST_VERIFY_TIME, Date.now());
+			return true;
+		} catch (e) {
+			console.warn('[Background] Session verification failed:', e);
+			return false;
+		}
+	}
+
+	private async trySyncVault(): Promise<boolean> {
+		const keys = StorageCore.KEYS;
 		const storageKeys = await StorageCore.getMultiple([keys.VAULT_KEY]);
 
 		if (!storageKeys[keys.VAULT_KEY]) return false;
 
-		try {
-			const response = await fetch(`${API_BASE_URL}/vault/entries`, {
-				headers: {
-					Authorization: `Bearer ${AccessToken}`,
-					'Cache-Control': 'no-cache',
-					Pragma: 'no-cache',
-				},
-			});
+		const encryptedEntries = await apiListEntries();
 
-			if (response.status === 401) {
-				return 'unauthorized';
-			}
+		const { vaultKey } = await importVaultKeys(storageKeys[keys.VAULT_KEY]);
 
-			if (!response.ok) return false;
-
-			const encryptedEntries = await response.json();
-			const { vaultKey } = await importVaultKeys(storageKeys[keys.VAULT_KEY]);
-
-			const decryptedEntries: any[] = [];
-			for (const entry of encryptedEntries) {
-				try {
-					const decrypted = await decryptVaultRecord(
-						vaultKey,
-						entry.Payload,
-						entry.Id,
-					);
-					decryptedEntries.push({ id: entry.Id, ...decrypted });
-				} catch (e) {}
-			}
-
-			const sessionKey = await this.ensureSessionKey();
-			const encryptedCache = await encryptVaultCache(
-				sessionKey,
-				JSON.stringify(decryptedEntries),
-			);
-
-			await StorageCore.set(keys.ENCRYPTED_VAULT, encryptedCache, 'local');
-			return true;
-		} catch (e) {
-			return false;
+		const decryptedEntries: any[] = [];
+		for (const entry of encryptedEntries) {
+			try {
+				const decrypted = await decryptVaultRecord(
+					vaultKey,
+					entry.Payload,
+					entry.Id,
+				);
+				decryptedEntries.push({ id: entry.Id, ...decrypted });
+			} catch (e) {}
 		}
+
+		const sessionKey = await this.ensureSessionKey();
+		const encryptedCache = await encryptVaultCache(
+			sessionKey,
+			JSON.stringify(decryptedEntries),
+		);
+
+		await StorageCore.set(keys.ENCRYPTED_VAULT, encryptedCache, 'local');
+		return true;
 	}
 
 	private async ensureSessionKey(): Promise<CryptoKey> {
@@ -131,49 +134,11 @@ export class BackgroundAuthManager {
 	}
 
 	async refreshTokens(): Promise<boolean> {
-		const keys = StorageCore.KEYS;
-		const { RefreshToken, RefreshExpiresAt, VaultKeyB64 } =
-			await StorageCore.getMultiple([
-				keys.REFRESH_TOKEN,
-				keys.REFRESH_EXPIRES_AT,
-				keys.VAULT_KEY,
-			]);
-
-		const token = RefreshToken;
-		const expiresAt = RefreshExpiresAt;
-		const vaultKey = VaultKeyB64;
-
-		if (!token) {
-			if (vaultKey) await this.clearSession();
-			return false;
-		}
-
-		if (isTokenExpired(expiresAt)) {
-			await this.clearSession();
-			return false;
-		}
-
 		try {
-			const data = await apiRefresh(RefreshToken);
-			await this.saveSession(
-				data.AccessToken,
-				data.RefreshToken,
-				data.RefreshExpiresAt,
-			);
+			await apiAuthMe();
 			return true;
-		} catch (error: any) {
-			console.error('[BackgroundAuthManager] Refresh error:', error);
-
-			const msg = error.message || '';
-			if (
-				msg.includes('401') ||
-				msg.includes('403') ||
-				msg.toLowerCase().includes('revoked') ||
-				msg.toLowerCase().includes('invalid')
-			) {
-				await this.clearSession();
-			}
-
+		} catch (error) {
+			console.warn('[BackgroundAuthManager] Proactive refresh failed:', error);
 			return false;
 		}
 	}
@@ -196,15 +161,10 @@ export class BackgroundAuthManager {
 	}
 
 	async logoutAll(): Promise<void> {
-		const keys = StorageCore.KEYS;
-		const { AccessToken } = await StorageCore.getMultiple([keys.ACCESS_TOKEN]);
-
-		if (AccessToken) {
-			try {
-				await apiLogoutAll(AccessToken);
-			} catch (e) {
-				console.warn('[Background] Logout All API failed', e);
-			}
+		try {
+			await apiLogoutAll();
+		} catch (e) {
+			console.warn('[Background] Logout All API failed', e);
 		}
 		await this.clearSession();
 	}
@@ -273,9 +233,6 @@ export class BackgroundAuthManager {
 		password: string,
 	): Promise<void> {
 		const keys = StorageCore.KEYS;
-		const { AccessToken } = await StorageCore.getMultiple([keys.ACCESS_TOKEN]);
-		if (!AccessToken) throw new Error('Not authenticated');
-
 		const storageKeys = await StorageCore.getMultiple([keys.VAULT_KEY]);
 		if (!storageKeys[keys.VAULT_KEY]) {
 			throw new Error('Vault keys not available');

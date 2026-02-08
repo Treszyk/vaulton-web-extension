@@ -48,7 +48,8 @@ export type BackgroundAction =
 	  }
 	| { type: 'ADD_TO_EXCLUSIONS'; payload: { domain: string } }
 	| { type: 'REMOVE_EXCLUSION'; payload: { domain: string } }
-	| { type: 'GET_EXCLUSIONS' };
+	| { type: 'GET_EXCLUSIONS' }
+	| { type: 'VERIFY_SESSION'; payload: { throttleMs: number } };
 
 export interface BackgroundResponse<T = any> {
 	success: boolean;

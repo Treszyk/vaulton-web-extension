@@ -7,6 +7,9 @@ import {
 	OnDestroy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { inject } from '@angular/core';
+import { SessionService } from '../../../core/auth/session.service';
+import { THROTTLES } from '../../../core/config/throttles';
 import type { VaultRecord } from '../../../core/vault/vault-record.model';
 
 @Component({
@@ -21,6 +24,7 @@ export class VaultDetailModalComponent implements OnDestroy {
 	@Output() closed = new EventEmitter<void>();
 	@Output() onEdit = new EventEmitter<VaultRecord>();
 	@Output() onDelete = new EventEmitter<string>();
+	private session = inject(SessionService);
 
 	reveal = signal(false);
 	copyConfirmActive = signal(false);
@@ -55,14 +59,20 @@ export class VaultDetailModalComponent implements OnDestroy {
 		this.triggerClose();
 	}
 
-	toggleReveal() {
+	async toggleReveal() {
 		if (this.reveal()) {
 			this.reveal.set(false);
 			if (this.revealTimeout) clearTimeout(this.revealTimeout);
 			return;
 		}
-		this.reveal.set(true);
-		this.revealTimeout = setTimeout(() => this.reveal.set(false), 8000);
+
+		try {
+			await this.session.verifySession(THROTTLES.SESSION_SECURITY_CHECK);
+			this.reveal.set(true);
+			this.revealTimeout = setTimeout(() => this.reveal.set(false), 8000);
+		} catch (e) {
+			console.error('Session verification failed before reveal', e);
+		}
 	}
 
 	onDeleteClick(_id: string) {
@@ -92,7 +102,7 @@ export class VaultDetailModalComponent implements OnDestroy {
 		this.showFeedback('username');
 	}
 
-	copyPassword(val: string) {
+	async copyPassword(val: string) {
 		if (this.justCopied() && this.copiedStatus() === 'password') return;
 
 		if (!this.copyConfirmActive()) {
@@ -106,9 +116,14 @@ export class VaultDetailModalComponent implements OnDestroy {
 			return;
 		}
 
-		navigator.clipboard.writeText(val);
-		this.copyConfirmActive.set(false);
-		this.showFeedback('password');
+		try {
+			await this.session.verifySession(THROTTLES.SESSION_SECURITY_CHECK);
+			navigator.clipboard.writeText(val);
+			this.copyConfirmActive.set(false);
+			this.showFeedback('password');
+		} catch (e) {
+			console.error('Session verification failed before copy', e);
+		}
 	}
 
 	private resetFeedback() {

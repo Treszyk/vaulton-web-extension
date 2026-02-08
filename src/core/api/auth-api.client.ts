@@ -1,3 +1,4 @@
+import { fetchClient } from './fetch-client';
 import { API_BASE_URL } from '../../config';
 
 export interface PreLoginResponse {
@@ -108,11 +109,12 @@ export async function apiLogout(refreshToken: string): Promise<void> {
 	});
 }
 
-export async function apiLogoutAll(accessToken: string): Promise<void> {
-	await fetch(`${API_BASE_URL}/auth/ext/logout-all`, {
+export async function apiLogoutAll(): Promise<void> {
+	await fetchClient(`${API_BASE_URL}/auth/ext/logout-all`, {
 		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${accessToken}`,
-		},
 	});
+}
+
+export async function apiAuthMe(): Promise<any> {
+	return fetchClient<any>(`${API_BASE_URL}/auth/me`);
 }

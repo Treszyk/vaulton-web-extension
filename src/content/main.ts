@@ -3,16 +3,16 @@ import { ButtonInjector } from './button-injector';
 import { CredentialPicker, CredentialOption } from './credential-picker';
 import { AutofillEngine } from './autofill-engine';
 import { browserApi } from '../core/storage/storage-core';
+import { THROTTLES } from '../core/config/throttles';
 import { SavePrompt } from './save-prompt';
 import { getBaseDomain } from '../core/utils/domain';
 import { generateSecurePassword } from '../core/crypto/password-utils';
 
 let lastResetTime = 0;
-const THROTTLE_MS = 30000;
 
 export function resetAutoLockTimer(): void {
 	const now = Date.now();
-	if (now - lastResetTime < THROTTLE_MS) return;
+	if (now - lastResetTime < THROTTLES.ACTIVITY_RESET) return;
 
 	lastResetTime = now;
 	browserApi.runtime.sendMessage({ type: 'RESET_TIMER' }).catch(() => {});

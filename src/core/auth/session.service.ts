@@ -2,9 +2,8 @@ import { Injectable, inject, signal } from '@angular/core';
 import { StorageCore } from '../storage/storage-core';
 import { AuthCryptoService } from './auth-crypto.service';
 import { sendCommand } from '../messaging';
-import { fetchClient } from '../api/fetch-client';
 import { apiPreLogin } from '../api/auth-api.client';
-import { API_BASE_URL } from '../../config';
+import { THROTTLES } from '../config/throttles';
 
 @Injectable({ providedIn: 'root' })
 export class SessionService {
@@ -56,11 +55,20 @@ export class SessionService {
 	async tryRestore(): Promise<void> {
 		await this.syncStateFromStorage();
 		if (this.isAuthenticated()) {
-			try {
-				await fetchClient(`${API_BASE_URL}/auth/me`);
-			} catch (e) {
-				await this.logout();
-			}
+			await this.verifySession(THROTTLES.SESSION_HEARTBEAT);
+		}
+	}
+
+	async verifySession(throttleMs: number): Promise<void> {
+		try {
+			const res = await sendCommand({
+				type: 'VERIFY_SESSION',
+				payload: { throttleMs },
+			});
+			if (!res.success) throw new Error(res.error);
+		} catch (e) {
+			await this.logout();
+			throw e;
 		}
 	}
 
@@ -77,10 +85,11 @@ export class SessionService {
 			throw new Error(startRes.error || 'Login start failed');
 		}
 
+		const data = startRes.data as any;
 		const { vaultKeyB64 } = await this.crypto.finalizeLogin(
-			startRes.data.MkWrapPwd,
-			startRes.data.CryptoSchemaVer,
-			startRes.data.AccountId,
+			data.MkWrapPwd,
+			data.CryptoSchemaVer,
+			data.AccountId || accountId,
 		);
 
 		await sendCommand({ type: 'LOGIN_COMPLETE', payload: { vaultKeyB64 } });

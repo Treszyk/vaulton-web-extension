@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SessionService } from '../core/auth/session.service';
+import { THROTTLES } from '../core/config/throttles';
 import { VaultService } from '../core/vault/vault.service';
 import { LoginComponent } from './components/login/login.component';
 import { MainLayoutComponent } from './components/main-layout/main-layout.component';
@@ -25,7 +26,6 @@ export class AppComponent implements OnInit {
 	vault = inject(VaultService);
 
 	private lastResetTime = 0;
-	private readonly RESET_THROTTLE_MS = 30000;
 
 	constructor(private cdr: ChangeDetectorRef) {}
 
@@ -39,7 +39,7 @@ export class AppComponent implements OnInit {
 
 	private resetTimerThrottled() {
 		const now = Date.now();
-		if (now - this.lastResetTime > this.RESET_THROTTLE_MS) {
+		if (now - this.lastResetTime > THROTTLES.ACTIVITY_RESET) {
 			this.lastResetTime = now;
 			chrome.runtime.sendMessage({ type: 'RESET_TIMER' });
 		}
@@ -62,7 +62,7 @@ export class AppComponent implements OnInit {
 		this.error = '';
 		try {
 			await this.auth.login(creds.email, creds.password);
-			await this.vault.syncVault();
+			await this.vault.syncVault(true);
 		} catch (e: any) {
 			this.error = e.message || 'Vault Unlock Failed';
 		} finally {

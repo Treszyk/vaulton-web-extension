@@ -15,6 +15,8 @@ export class StorageCore {
 		ENCRYPTED_VAULT: 'EncryptedVault',
 		PENDING_SAVE: 'PendingSavePrompts',
 		EXCLUDED_SITES: 'ExcludedSites',
+		LAST_SYNC_TIME: 'LastSyncTime',
+		LAST_VERIFY_TIME: 'LastVerifyTime',
 	};
 
 	private static readonly KEY_CHART: {
@@ -30,6 +32,8 @@ export class StorageCore {
 		[StorageCore.KEYS.ENCRYPTED_VAULT]: 'local',
 		[StorageCore.KEYS.EXCLUDED_SITES]: 'local',
 		[StorageCore.KEYS.PENDING_SAVE]: 'session',
+		[StorageCore.KEYS.LAST_SYNC_TIME]: 'session',
+		[StorageCore.KEYS.LAST_VERIFY_TIME]: 'session',
 	};
 
 	private static strategyCache: {
@@ -148,22 +152,13 @@ export class StorageCore {
 		await this.execute('clear', area);
 	}
 
-	/**
-	 * Clears the volatile session state.
-	 * - Wipes EVERYTHING in the 'session' storage area.
-	 * - Removes dynamic keys (tokens, vault key) from the 'local' area.
-	 * - Preserves persistent local keys (AccountId, Strategy, EncryptedVault).
-	 */
 	static async clearSession(): Promise<void> {
-		// 1. Wipe volatile area completely
 		await this.execute('clear', 'session');
 
-		// 2. Clean dynamic/temporary keys from local storage
 		const dynamicKeys = Object.entries(this.KEY_CHART)
 			.filter(([_, val]) => val === 'dynamic')
 			.map(([k, _]) => k);
 
-		// Include EncryptedVault as requested (useless without session key)
 		await this.execute('remove', 'local', [
 			...dynamicKeys,
 			this.KEYS.ENCRYPTED_VAULT,
