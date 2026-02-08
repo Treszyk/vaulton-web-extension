@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, inject } from '@angular/core';
 import { VaultRecord, VaultRecordInput } from './vault-record.model';
 import { StorageCore } from '../storage/storage-core';
 import { importVaultKeys, encryptVaultRecord } from '../crypto/crypto-core';
@@ -11,6 +11,7 @@ import {
 } from '../api/vault-api.client';
 import { loadVault, saveVault } from './vault-storage';
 import { sendCommand } from '../messaging';
+import { SessionService } from '../auth/session.service';
 
 @Injectable({ providedIn: 'root' })
 export class VaultService {
@@ -18,6 +19,8 @@ export class VaultService {
 	readonly records = this._records.asReadonly();
 	readonly isLoading = signal(false);
 	readonly isReady = signal(false);
+
+	private readonly session = inject(SessionService);
 
 	constructor() {
 		this.initStorageListener();
@@ -73,12 +76,16 @@ export class VaultService {
 
 	private async encryptEntry(
 		entry: VaultRecordInput,
-		aad: string,
+		entryId: string,
 	): Promise<{ Payload: EncryptedValueDto }> {
-		const keyB64 = await StorageCore.get(StorageCore.KEYS.VAULT_KEY);
-		if (!keyB64) throw new Error('Vault locked');
-		const { vaultKey } = await importVaultKeys(keyB64);
-		return encryptVaultRecord(vaultKey, entry, aad);
+		const vaultKeyB64 = await StorageCore.get(StorageCore.KEYS.VAULT_KEY);
+		const accountId = this.session.accountId();
+
+		if (!vaultKeyB64) throw new Error('Vault locked');
+		if (!accountId) throw new Error('Account ID missing');
+
+		const { vaultKey } = await importVaultKeys(vaultKeyB64);
+		return encryptVaultRecord(vaultKey, entry, `${accountId}:${entryId}`);
 	}
 
 	async addRecord(input: VaultRecordInput) {

@@ -66,10 +66,10 @@ export async function deriveVaultKeys(
 export async function encryptVaultRecord<T = any>(
 	vaultKey: CryptoKey,
 	input: T,
-	entryId: string,
+	aadStr: string,
 ): Promise<{ Payload: EncryptedValueDto }> {
-	const aadStr = `vaulton:v-entry:${entryId}`;
-	const aad = b64ToBytes(bytesToB64(new TextEncoder().encode(aadStr)));
+	const aadContent = `vaulton:v-entry:${aadStr}`;
+	const aad = b64ToBytes(bytesToB64(new TextEncoder().encode(aadContent)));
 	const json = JSON.stringify(input);
 	const ptBytes = new Uint8Array(new TextEncoder().encode(json));
 
@@ -102,13 +102,13 @@ export async function encryptVaultRecord<T = any>(
 export async function decryptVaultRecord<T = any>(
 	vaultKey: CryptoKey,
 	dto: EncryptedValueDto,
-	entryId: string,
+	aadStr: string,
 ): Promise<T> {
-	const aadStr = `vaulton:v-entry:${entryId}`;
+	const aadContent = `vaulton:v-entry:${aadStr}`;
 	const nonce = b64ToBytes(dto.Nonce);
 	const ct = b64ToBytes(dto.CipherText);
 	const tag = b64ToBytes(dto.Tag);
-	const aad = b64ToBytes(bytesToB64(new TextEncoder().encode(aadStr)));
+	const aad = b64ToBytes(bytesToB64(new TextEncoder().encode(aadContent)));
 
 	let ctTag: Uint8Array | null = null;
 

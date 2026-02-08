@@ -23,8 +23,10 @@ import {
 	apiPreCreateEntry,
 	apiUpdateEntry,
 } from '../core/api/vault-api.client';
+import { getAccountIdFromToken } from '../core/auth/jwt-utils';
 
 export class BackgroundAuthManager {
+	private _cachedAccountId: string | null = null;
 	async syncVault(force = false, throttleMs = 300000): Promise<boolean> {
 		if (!force) {
 			const lastSync = await StorageCore.get(StorageCore.KEYS.LAST_SYNC_TIME);
@@ -62,15 +64,29 @@ export class BackgroundAuthManager {
 		}
 	}
 
+	private async getAccountId(): Promise<string> {
+		if (this._cachedAccountId) return this._cachedAccountId;
+
+		const token = await StorageCore.get(StorageCore.KEYS.ACCESS_TOKEN);
+		if (!token) throw new Error('Not authenticated');
+
+		const id = getAccountIdFromToken(token);
+		if (!id) throw new Error('Invalid token: Account ID missing');
+
+		this._cachedAccountId = id;
+		return id;
+	}
+
 	private async trySyncVault(): Promise<boolean> {
 		const keys = StorageCore.KEYS;
-		const storageKeys = await StorageCore.getMultiple([keys.VAULT_KEY]);
+		const storageData = await StorageCore.getMultiple([keys.VAULT_KEY]);
 
-		if (!storageKeys[keys.VAULT_KEY]) return false;
+		if (!storageData[keys.VAULT_KEY]) return false;
 
+		const accountId = await this.getAccountId();
 		const encryptedEntries = await apiListEntries();
 
-		const { vaultKey } = await importVaultKeys(storageKeys[keys.VAULT_KEY]);
+		const { vaultKey } = await importVaultKeys(storageData[keys.VAULT_KEY]);
 
 		const decryptedEntries: any[] = [];
 		for (const entry of encryptedEntries) {
@@ -78,7 +94,7 @@ export class BackgroundAuthManager {
 				const decrypted = await decryptVaultRecord(
 					vaultKey,
 					entry.Payload,
-					entry.Id,
+					`${accountId}:${entry.Id}`,
 				);
 				decryptedEntries.push({ id: entry.Id, ...decrypted });
 			} catch (e) {}
@@ -201,11 +217,13 @@ export class BackgroundAuthManager {
 
 		if (accountId) {
 			await StorageCore.set(keys.ACCOUNT_ID, accountId);
+			this._cachedAccountId = accountId;
 		}
 	}
 
 	public async clearSession(): Promise<void> {
 		console.log('[Background] Clearing session keys and tokens...');
+		this._cachedAccountId = null;
 		await StorageCore.clearSession();
 	}
 
@@ -233,11 +251,12 @@ export class BackgroundAuthManager {
 		password: string,
 	): Promise<void> {
 		const keys = StorageCore.KEYS;
-		const storageKeys = await StorageCore.getMultiple([keys.VAULT_KEY]);
-		if (!storageKeys[keys.VAULT_KEY]) {
+		const storageData = await StorageCore.getMultiple([keys.VAULT_KEY]);
+		if (!storageData[keys.VAULT_KEY]) {
 			throw new Error('Vault keys not available');
 		}
 
+		const accountId = await this.getAccountId();
 		const vault = (await loadVault()) || [];
 		const baseDomain = getBaseDomain(domain);
 		const existingRecord = vault.find(
@@ -256,11 +275,16 @@ export class BackgroundAuthManager {
 			lastModified: Date.now(),
 		};
 
-		const { vaultKey } = await importVaultKeys(storageKeys[keys.VAULT_KEY]);
+		const { vaultKey } = await importVaultKeys(storageData[keys.VAULT_KEY]);
 		const entryId = existingRecord
 			? existingRecord.id
 			: (await apiPreCreateEntry()).EntryId;
-		const encrypted = await encryptVaultRecord(vaultKey, recordData, entryId);
+
+		const encrypted = await encryptVaultRecord(
+			vaultKey,
+			recordData,
+			`${accountId}:${entryId}`,
+		);
 
 		if (existingRecord) {
 			await apiUpdateEntry(entryId, { Payload: encrypted.Payload });
