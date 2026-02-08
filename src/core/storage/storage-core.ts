@@ -214,7 +214,6 @@ export class StorageCore {
 		const strategy = await this.execute('get', 'local', [scopedKey]);
 		let val = strategy?.[scopedKey];
 
-		// Fallback to global if scoped not found
 		if (val === undefined && scopedKey !== this.KEYS.LOCKOUT_STRATEGY) {
 			const globalStrategy = await this.execute('get', 'local', [
 				this.KEYS.LOCKOUT_STRATEGY,

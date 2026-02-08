@@ -223,6 +223,8 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	font-weight: 500;
+	flex: 1;
+	min-width: 0;
 }
 
 .record-website {
@@ -231,6 +233,9 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	flex-shrink: 1;
+	min-width: 0;
+	max-width: 150px;
 }
 
 .dot-separator {
@@ -239,13 +244,49 @@
 }
 
 .empty-placeholder {
-	padding-top: 60px;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
+	justify-content: center;
 	color: #d4d4d8;
 	text-align: center;
-	gap: 12px;
+	flex: 1;
+	min-height: 0;
+	padding: 40px 20px;
+}
+
+.empty-content {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 16px;
+	width: 100%;
+	max-width: 280px;
+}
+
+.empty-content p {
+	margin: 0;
+	font-size: 14px;
+	line-height: 1.5;
+	color: #d4d4d8;
+}
+
+.query-text {
+	display: inline-block;
+	max-width: 180px;
+	color: #a78bfa;
+	font-weight: 700;
+	vertical-align: bottom;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.large-icon {
+	width: 64px;
+	height: 64px;
+	color: #52525b;
+	margin-bottom: 4px;
 }
 
 .modal-overlay {

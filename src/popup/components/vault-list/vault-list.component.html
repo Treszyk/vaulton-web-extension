@@ -29,9 +29,10 @@
 
 	<div
 		class="records-list"
-		*ngIf="!isLoading()">
+		*ngIf="!isLoading() && (filteredRecords().length > 0 || !searchQuery())">
 		<div
 			class="record-item ghost-card"
+			*ngIf="!searchQuery()"
 			(click)="onAddNew()">
 			<div class="ghost-icon-container">
 				<div class="ghost-icon-circle">
@@ -129,7 +130,8 @@
 					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
 			</svg>
 			<p *ngIf="searchQuery(); else noRecords">
-				No matches found for "{{ searchQuery() }}"
+				No matches found for
+				<span class="query-text">"{{ searchQuery() }}"</span>
 			</p>
 			<ng-template #noRecords>
 				<p>Your vault is empty.</p>

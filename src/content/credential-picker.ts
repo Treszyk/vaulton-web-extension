@@ -158,6 +158,7 @@ export class CredentialPicker {
 		listContainer.style.cssText = `
 			padding: 8px;
 			overflow-y: auto;
+			overflow-x: hidden;
 			flex: 1;
 			min-height: 0;
 			max-height: 320px !important;
@@ -254,7 +255,7 @@ export class CredentialPicker {
 				<div style="color: #d4d4d8; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">
 					Credentials for
 				</div>
-				<div style="color: white; font-size: 13px; font-weight: 600;">
+				<div style="color: white; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
 					${escapeHtml(domain)} ${count > 0 ? `(${count})` : ''}
 				</div>
 			</div>
@@ -364,10 +365,10 @@ export class CredentialPicker {
 		`;
 
 		item.innerHTML = `
-			<div style="color: white; font-size: 14px; font-weight: 600; margin-bottom: 2px;">
+			<div style="color: white; font-size: 14px; font-weight: 600; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
 				${escapeHtml(cred.title)}
 			</div>
-			<div style="color: #d4d4d8; font-size: 12px;">
+			<div style="color: #d4d4d8; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
 				${escapeHtml(cred.username)}
 			</div>
 		`;
