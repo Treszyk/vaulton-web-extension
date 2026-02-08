@@ -10,12 +10,24 @@ import { generateSecurePassword } from '../core/crypto/password-utils';
 
 let lastResetTime = 0;
 
+function isContextInvalidated(error: any): boolean {
+	const msg = error?.message || String(error);
+	return (
+		msg.includes('context invalidated') ||
+		msg.includes('Extension context invalidated')
+	);
+}
+
 export function resetAutoLockTimer(): void {
 	const now = Date.now();
 	if (now - lastResetTime < THROTTLES.ACTIVITY_RESET) return;
 
 	lastResetTime = now;
-	browserApi.runtime.sendMessage({ type: 'RESET_TIMER' }).catch(() => {});
+	browserApi.runtime.sendMessage({ type: 'RESET_TIMER' }).catch((e: any) => {
+		if (isContextInvalidated(e)) {
+			console.warn('[Vaulton] Extension context invalidated (timer reset).');
+		}
+	});
 }
 
 document.addEventListener('mousedown', resetAutoLockTimer);
@@ -36,40 +48,30 @@ function extractDomain(url: string): string {
 async function fetchCredentials(
 	domain: string,
 ): Promise<{ credentials: CredentialOption[]; locked: boolean }> {
-	try {
-		const response = await browserApi.runtime.sendMessage({
-			type: 'GET_CREDENTIALS',
-			payload: { domain },
-		});
+	const response = await browserApi.runtime.sendMessage({
+		type: 'GET_CREDENTIALS',
+		payload: { domain },
+	});
 
-		if (response && response.success && response.data) {
-			return response.data;
-		}
-		return { credentials: [], locked: false };
-	} catch (e) {
-		console.error('[Vaulton] Failed to fetch credentials:', e);
-		return { credentials: [], locked: false };
+	if (response && response.success && response.data) {
+		return response.data;
 	}
+	return { credentials: [], locked: false };
 }
 
 async function fetchAllCredentials(): Promise<{
 	credentials: CredentialOption[];
 	locked: boolean;
 }> {
-	try {
-		const response = await browserApi.runtime.sendMessage({
-			type: 'GET_CREDENTIALS',
-			payload: { domain: '' },
-		});
+	const response = await browserApi.runtime.sendMessage({
+		type: 'GET_CREDENTIALS',
+		payload: { domain: '' },
+	});
 
-		if (response && response.success && response.data) {
-			return response.data;
-		}
-		return { credentials: [], locked: false };
-	} catch (e) {
-		console.error('[Vaulton] Failed to fetch all credentials:', e);
-		return { credentials: [], locked: false };
+	if (response && response.success && response.data) {
+		return response.data;
 	}
+	return { credentials: [], locked: false };
 }
 
 async function handleButtonClick(
@@ -77,67 +79,82 @@ async function handleButtonClick(
 	targetInput: HTMLInputElement,
 ): Promise<void> {
 	const domain = extractDomain(window.location.href);
-	const response = await fetchCredentials(domain);
 
-	if (response.locked) {
-		credentialPicker.showLockedState(targetInput);
-		return;
-	}
+	try {
+		const response = await fetchCredentials(domain);
 
-	const handleSelect = (cred: CredentialOption) => {
-		autofillEngine.fillCredentials(
-			form.usernameInput,
-			form.passwordInput,
-			cred.username,
-			cred.password,
-		);
-	};
-
-	const handleGenerate = () => {
-		const target = form.passwordInput || targetInput;
-
-		if (
-			target.readOnly ||
-			target.disabled ||
-			target.getAttribute('readonly') !== null ||
-			target.getAttribute('disabled') !== null
-		) {
-			return;
-		}
-
-		const newPassword = generateSecurePassword(20);
-		target.value = newPassword;
-		target.dispatchEvent(new Event('input', { bubbles: true }));
-		target.dispatchEvent(new Event('change', { bubbles: true }));
-	};
-
-	const handleShowAll = async () => {
-		const allResponse = await fetchAllCredentials();
-		if (allResponse.locked) {
+		if (response.locked) {
 			credentialPicker.showLockedState(targetInput);
 			return;
 		}
 
+		const handleSelect = (cred: CredentialOption) => {
+			autofillEngine.fillCredentials(
+				form.usernameInput,
+				form.passwordInput,
+				cred.username,
+				cred.password,
+			);
+		};
+
+		const handleGenerate = () => {
+			const target = form.passwordInput || targetInput;
+
+			if (
+				target.readOnly ||
+				target.disabled ||
+				target.getAttribute('readonly') !== null ||
+				target.getAttribute('disabled') !== null
+			) {
+				return;
+			}
+
+			const newPassword = generateSecurePassword(20);
+			target.value = newPassword;
+			target.dispatchEvent(new Event('input', { bubbles: true }));
+			target.dispatchEvent(new Event('change', { bubbles: true }));
+		};
+
+		const handleShowAll = async () => {
+			try {
+				const allResponse = await fetchAllCredentials();
+				if (allResponse.locked) {
+					credentialPicker.showLockedState(targetInput);
+					return;
+				}
+
+				credentialPicker.show(
+					allResponse.credentials,
+					targetInput,
+					handleSelect,
+					handleGenerate,
+					undefined,
+					undefined,
+					form.isRegistration,
+				);
+			} catch (e) {
+				if (isContextInvalidated(e)) {
+					credentialPicker.showInvalidatedState(targetInput);
+				}
+			}
+		};
+
 		credentialPicker.show(
-			allResponse.credentials,
+			response.credentials,
 			targetInput,
 			handleSelect,
 			handleGenerate,
-			undefined,
-			undefined,
+			handleShowAll,
+			domain,
 			form.isRegistration,
 		);
-	};
-
-	credentialPicker.show(
-		response.credentials,
-		targetInput,
-		handleSelect,
-		handleGenerate,
-		handleShowAll,
-		domain,
-		form.isRegistration,
-	);
+	} catch (e) {
+		if (isContextInvalidated(e)) {
+			credentialPicker.showInvalidatedState(targetInput);
+		} else {
+			console.error('[Vaulton] handleButtonClick error:', e);
+		}
+	}
 }
 
 function setupForm(form: LoginForm): void {

@@ -121,6 +121,75 @@ export class CredentialPicker {
 		}, 100);
 	}
 
+	showInvalidatedState(targetInput: HTMLInputElement): void {
+		this.hide();
+
+		const picker = document.createElement('div');
+		picker.className = 'vaulton-credential-picker';
+		picker.style.cssText = `
+			position: absolute !important;
+			background: #18181b !important;
+			border: 1px solid #27272a !important;
+			border-radius: 12px !important;
+			padding: 16px !important;
+			margin: 0 !important;
+			box-sizing: border-box !important;
+			min-width: 280px !important;
+			z-index: 999999 !important;
+			box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+			font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+			animation: vaultonPickerSlideIn 0.2s ease-out !important;
+			display: flex !important;
+			flex-direction: column !important;
+			color: white !important;
+			text-align: center !important;
+		`;
+
+		picker.innerHTML = `
+			<div style="display: flex !important; justify-content: center !important; margin-bottom: 12px; color: #a1a1aa;">
+				<svg style="width: 32px; height: 32px;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+					<path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+					<line x1="12" y1="2" x2="12" y2="12"></line>
+				</svg>
+			</div>
+			<div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">Connection Lost</div>
+			<div style="font-size: 13px; color: #d4d4d8; margin-bottom: 16px;">The extension has been updated or reloaded. Please refresh to continue.</div>
+		`;
+
+		const refreshBtn = document.createElement('button');
+		refreshBtn.style.cssText = `
+			background: #7c3aed;
+			color: white;
+			border: none;
+			border-radius: 8px;
+			padding: 8px 16px;
+			font-size: 13px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: background 0.2s;
+		`;
+		refreshBtn.textContent = 'Refresh Page';
+		refreshBtn.onclick = () => window.location.reload();
+		picker.appendChild(refreshBtn);
+
+		this.positionPicker(picker, targetInput);
+		document.body.appendChild(picker);
+		this.element = picker;
+
+		const handleOutsideClick = (e: MouseEvent) => {
+			if (!e.composedPath().includes(picker)) {
+				this.hide();
+				window.removeEventListener('click', handleOutsideClick, {
+					capture: true,
+				});
+			}
+		};
+
+		setTimeout(() => {
+			window.addEventListener('click', handleOutsideClick, { capture: true });
+		}, 100);
+	}
+
 	private createPicker(
 		credentials: CredentialOption[],
 		onSelect: (cred: CredentialOption) => void,
