@@ -36,23 +36,30 @@ export class StorageCore {
 		[StorageCore.KEYS.LAST_VERIFY_TIME]: 'session',
 	};
 
+	private static readonly SCOPED_KEYS = [
+		StorageCore.KEYS.LOCKOUT_STRATEGY,
+		StorageCore.KEYS.EXCLUDED_SITES,
+	];
+
 	private static strategyCache: {
 		val: StorageArea | null;
 		expiry: number;
 	} = { val: null, expiry: 0 };
 
 	static async get(key: string, area?: StorageArea): Promise<any> {
+		const scopedKey = await this.getScopedKey(key);
 		const targetArea = area || (await this.resolveArea(key));
-		const result = await this.execute('get', targetArea, [key]);
-		return result ? result[key] : undefined;
+		const result = await this.execute('get', targetArea, [scopedKey]);
+		return result ? result[scopedKey] : undefined;
 	}
 
 	static async set(key: string, value: any, area?: StorageArea): Promise<void> {
 		if (key === this.KEYS.LOCKOUT_STRATEGY) {
 			this.invalidateStrategyCache();
 		}
+		const scopedKey = await this.getScopedKey(key);
 		const targetArea = area || (await this.resolveArea(key));
-		await this.execute('set', targetArea, { [key]: value });
+		await this.execute('set', targetArea, { [scopedKey]: value });
 	}
 
 	static async setMultiple(
@@ -74,7 +81,8 @@ export class StorageCore {
 
 		for (const [key, val] of Object.entries(items)) {
 			const target = await this.resolveArea(key);
-			buckets[target][key] = val;
+			const scopedKey = await this.getScopedKey(key);
+			buckets[target][scopedKey] = val;
 		}
 
 		if (Object.keys(buckets.local).length > 0) {
@@ -100,25 +108,36 @@ export class StorageCore {
 
 		for (const key of keys) {
 			const target = await this.resolveArea(key);
-			buckets[target].push(key);
+			const scopedKey = await this.getScopedKey(key);
+			buckets[target].push(scopedKey);
 		}
 
 		const results: { [key: string]: any } = {};
 		if (buckets.local.length > 0) {
-			Object.assign(results, await this.execute('get', 'local', buckets.local));
+			const localRes = await this.execute('get', 'local', buckets.local);
+			for (const key of keys) {
+				const scopedKey = await this.getScopedKey(key);
+				if (localRes[scopedKey] !== undefined) {
+					results[key] = localRes[scopedKey];
+				}
+			}
 		}
 		if (buckets.session.length > 0) {
-			Object.assign(
-				results,
-				await this.execute('get', 'session', buckets.session),
-			);
+			const sessionRes = await this.execute('get', 'session', buckets.session);
+			for (const key of keys) {
+				const scopedKey = await this.getScopedKey(key);
+				if (sessionRes[scopedKey] !== undefined) {
+					results[key] = sessionRes[scopedKey];
+				}
+			}
 		}
 		return results;
 	}
 
 	static async remove(key: string, area?: StorageArea): Promise<void> {
+		const scopedKey = await this.getScopedKey(key);
 		const targetArea = area || (await this.resolveArea(key));
-		await this.execute('remove', targetArea, [key]);
+		await this.execute('remove', targetArea, [scopedKey]);
 	}
 
 	static async removeMultiple(
@@ -137,7 +156,8 @@ export class StorageCore {
 
 		for (const key of keys) {
 			const target = await this.resolveArea(key);
-			buckets[target].push(key);
+			const scopedKey = await this.getScopedKey(key);
+			buckets[target].push(scopedKey);
 		}
 
 		if (buckets.local.length > 0) {
@@ -146,6 +166,17 @@ export class StorageCore {
 		if (buckets.session.length > 0) {
 			await this.execute('remove', 'session', buckets.session);
 		}
+	}
+
+	private static async getScopedKey(key: string): Promise<string> {
+		if (!this.SCOPED_KEYS.includes(key)) return key;
+
+		const globalAccountId = await this.execute('get', 'local', [
+			this.KEYS.ACCOUNT_ID,
+		]);
+		const accountId = globalAccountId?.[this.KEYS.ACCOUNT_ID];
+
+		return accountId ? `acc:${accountId}:${key}` : key;
 	}
 
 	static async clear(area: StorageArea = 'session'): Promise<void> {
@@ -159,10 +190,10 @@ export class StorageCore {
 			.filter(([_, val]) => val === 'dynamic')
 			.map(([k, _]) => k);
 
-		await this.execute('remove', 'local', [
-			...dynamicKeys,
-			this.KEYS.ENCRYPTED_VAULT,
-		]);
+		await this.removeMultiple(
+			[...dynamicKeys, this.KEYS.ENCRYPTED_VAULT],
+			'local',
+		);
 	}
 
 	private static async resolveArea(key: string): Promise<StorageArea> {
@@ -179,10 +210,18 @@ export class StorageCore {
 			return this.strategyCache.val;
 		}
 
-		const strategy = await this.execute('get', 'local', [
-			this.KEYS.LOCKOUT_STRATEGY,
-		]);
-		const val = strategy?.[this.KEYS.LOCKOUT_STRATEGY];
+		const scopedKey = await this.getScopedKey(this.KEYS.LOCKOUT_STRATEGY);
+		const strategy = await this.execute('get', 'local', [scopedKey]);
+		let val = strategy?.[scopedKey];
+
+		// Fallback to global if scoped not found
+		if (val === undefined && scopedKey !== this.KEYS.LOCKOUT_STRATEGY) {
+			const globalStrategy = await this.execute('get', 'local', [
+				this.KEYS.LOCKOUT_STRATEGY,
+			]);
+			val = globalStrategy?.[this.KEYS.LOCKOUT_STRATEGY];
+		}
+
 		const res = val === 'Persistent' ? 'local' : 'session';
 
 		this.strategyCache = {
