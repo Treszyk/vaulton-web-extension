@@ -41,6 +41,8 @@ const credentialPicker = new CredentialPicker();
 const autofillEngine = new AutofillEngine();
 const savePrompt = new SavePrompt();
 
+let pendingLoginState: { username: string; domain: string } | null = null;
+
 function extractDomain(url: string): string {
 	return getBaseDomain(url);
 }
@@ -89,6 +91,23 @@ async function handleButtonClick(
 		}
 
 		const handleSelect = (cred: CredentialOption) => {
+			pendingLoginState = {
+				username: cred.username,
+				domain,
+			};
+
+			browserApi.runtime
+				.sendMessage({
+					type: 'SET_PENDING_SAVE',
+					payload: {
+						domain,
+						username: cred.username,
+						password: '',
+						action: 'save',
+					},
+				})
+				.catch(() => {});
+
 			autofillEngine.fillCredentials(
 				form.usernameInput,
 				form.passwordInput,
@@ -139,15 +158,23 @@ async function handleButtonClick(
 			}
 		};
 
-		credentialPicker.show(
-			response.credentials,
-			targetInput,
-			handleSelect,
-			handleGenerate,
-			handleShowAll,
-			domain,
-			form.isRegistration,
-		);
+		(form.isRegistration,
+			credentialPicker.show(
+				response.credentials,
+				targetInput,
+				handleSelect,
+				handleGenerate,
+				handleShowAll,
+				domain,
+				form.isRegistration,
+			));
+
+		if (form.usernameInput) {
+			pendingLoginState = {
+				username: form.usernameInput.value,
+				domain,
+			};
+		}
 	} catch (e) {
 		if (isContextInvalidated(e)) {
 			credentialPicker.showInvalidatedState(targetInput);
@@ -182,6 +209,21 @@ async function handleFormSubmit(data: FormSubmitData): Promise<void> {
 		return;
 	}
 
+	let username = data.username;
+	if (
+		!username &&
+		pendingLoginState &&
+		pendingLoginState.domain === baseDomain
+	) {
+		console.log('[Vaulton] Using stitched username from session state');
+		username = pendingLoginState.username;
+	}
+
+	if (!username) {
+		console.warn('[Vaulton] No username found, using "unknown" fallback');
+		username = 'unknown';
+	}
+
 	const exclusionsRes = await browserApi.runtime.sendMessage({
 		type: 'GET_EXCLUSIONS',
 	});
@@ -200,7 +242,7 @@ async function handleFormSubmit(data: FormSubmitData): Promise<void> {
 			type: 'SET_PENDING_SAVE',
 			payload: {
 				domain: baseDomain,
-				username: data.username,
+				username: username,
 				password: data.password,
 				action: 'save',
 			},
@@ -209,17 +251,29 @@ async function handleFormSubmit(data: FormSubmitData): Promise<void> {
 		console.error('[Vaulton] Failed to set pending save:', e);
 	}
 
+	if (!data.password) {
+		console.log(
+			'[Vaulton] Stage 1 submission (username only), state preserved',
+		);
+		pendingLoginState = {
+			username: username,
+			domain: baseDomain,
+		};
+		return;
+	}
+
 	try {
+		// console.log('[Vaulton] Checking existence for username:', username);
 		const response = await browserApi.runtime.sendMessage({
 			type: 'CHECK_CREDENTIAL_EXISTS',
 			payload: {
 				domain: baseDomain,
-				username: data.username,
+				username: username,
 				password: data.password,
 			},
 		});
 
-		console.log('[Vaulton] CHECK_CREDENTIAL_EXISTS response:', response);
+		console.log('[Vaulton] Checked credential existence');
 
 		if (response && response.success && response.data) {
 			const { action } = response.data;
@@ -228,10 +282,7 @@ async function handleFormSubmit(data: FormSubmitData): Promise<void> {
 				console.log(
 					'[Vaulton] Credential already exists, skipping save prompt.',
 				);
-				await browserApi.runtime.sendMessage({
-					type: 'CLEAR_PENDING_SAVE',
-					payload: { domain: baseDomain },
-				});
+				await clearStickyState(baseDomain);
 				return;
 			}
 
@@ -240,19 +291,16 @@ async function handleFormSubmit(data: FormSubmitData): Promise<void> {
 					type: 'SET_PENDING_SAVE',
 					payload: {
 						domain: baseDomain,
-						username: data.username,
+						username: username,
 						password: data.password,
 						action: 'update',
 					},
 				});
 			}
 
-			savePrompt.show(action, baseDomain, data.username, async (userAction) => {
+			savePrompt.show(action, baseDomain, username, async (userAction) => {
 				console.log('[Vaulton] Save prompt action:', userAction);
-				await browserApi.runtime.sendMessage({
-					type: 'CLEAR_PENDING_SAVE',
-					payload: { domain: baseDomain },
-				});
+				await clearStickyState(baseDomain);
 
 				if (userAction === 'never') {
 					await browserApi.runtime.sendMessage({
@@ -268,7 +316,7 @@ async function handleFormSubmit(data: FormSubmitData): Promise<void> {
 							type: 'SAVE_CREDENTIAL',
 							payload: {
 								domain: baseDomain,
-								username: data.username,
+								username: username,
 								password: data.password,
 							},
 						});
@@ -281,6 +329,14 @@ async function handleFormSubmit(data: FormSubmitData): Promise<void> {
 	} catch (e) {
 		console.error('[Vaulton] Form submit handler error:', e);
 	}
+}
+
+async function clearStickyState(domain: string): Promise<void> {
+	pendingLoginState = null;
+	await browserApi.runtime.sendMessage({
+		type: 'CLEAR_PENDING_SAVE',
+		payload: { domain },
+	});
 }
 
 async function initialize(): Promise<void> {
@@ -304,41 +360,45 @@ async function initialize(): Promise<void> {
 				payload: { domain: baseDomain },
 			});
 
-			console.log('[Vaulton] GET_PENDING_SAVE response:', pendingResult);
+			console.log('[Vaulton] Checked for pending saves');
 
 			if (pendingResult && pendingResult.success && pendingResult.data) {
 				const pending = pendingResult.data;
-				console.log('[Vaulton] Recovered pending save:', pending.username);
-				savePrompt.show(
-					pending.action,
-					pending.domain,
-					pending.username,
-					async (userAction) => {
-						await browserApi.runtime.sendMessage({
-							type: 'CLEAR_PENDING_SAVE',
-							payload: { domain: baseDomain },
-						});
+				console.log('[Vaulton] Recovered pending save from session');
+				pendingLoginState = {
+					username: pending.username,
+					domain: pending.domain,
+				};
 
-						if (userAction === 'never') {
-							await browserApi.runtime.sendMessage({
-								type: 'ADD_TO_EXCLUSIONS',
-								payload: { domain: baseDomain },
-							});
-							return;
-						}
+				if (pending.password) {
+					savePrompt.show(
+						pending.action,
+						pending.domain,
+						pending.username,
+						async (userAction) => {
+							await clearStickyState(baseDomain);
 
-						if (userAction === 'save' || userAction === 'update') {
-							await browserApi.runtime.sendMessage({
-								type: 'SAVE_CREDENTIAL',
-								payload: {
-									domain: pending.domain,
-									username: pending.username,
-									password: pending.password,
-								},
-							});
-						}
-					},
-				);
+							if (userAction === 'never') {
+								await browserApi.runtime.sendMessage({
+									type: 'ADD_TO_EXCLUSIONS',
+									payload: { domain: baseDomain },
+								});
+								return;
+							}
+
+							if (userAction === 'save' || userAction === 'update') {
+								await browserApi.runtime.sendMessage({
+									type: 'SAVE_CREDENTIAL',
+									payload: {
+										domain: pending.domain,
+										username: pending.username,
+										password: pending.password,
+									},
+								});
+							}
+						},
+					);
+				}
 			} else {
 				console.log('[Vaulton] No pending saves found.');
 			}

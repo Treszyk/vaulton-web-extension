@@ -494,7 +494,8 @@ export class CredentialPicker {
 	}
 
 	private determineInitialPosition(targetInput: HTMLInputElement): void {
-		const rect = targetInput.getBoundingClientRect();
+		const visualContainer = this.findVisualContainer(targetInput);
+		const rect = visualContainer.getBoundingClientRect();
 		const spaceBelow = window.innerHeight - rect.bottom;
 		const spaceAbove = rect.top;
 
@@ -507,11 +508,45 @@ export class CredentialPicker {
 		}
 	}
 
+	private findVisualContainer(input: HTMLInputElement): HTMLElement {
+		let current: HTMLElement | null = input.parentElement;
+
+		for (let i = 0; i < 3; i++) {
+			if (!current) break;
+
+			const className = current.className || '';
+			const isFuiInput = className.includes('fui-Input');
+			const isFormControl = className.includes('form-control');
+			const isInputWrapper =
+				className.includes('input-wrapper') ||
+				className.includes('field-wrapper');
+
+			if (isFuiInput || isFormControl || isInputWrapper) {
+				return current;
+			}
+
+			const parentRect = current.getBoundingClientRect();
+			const inputRect = input.getBoundingClientRect();
+
+			if (
+				parentRect.width > inputRect.width + 10 &&
+				parentRect.height < inputRect.height + 20
+			) {
+				return current;
+			}
+
+			current = current.parentElement;
+		}
+
+		return input;
+	}
+
 	private positionPicker(
 		picker: HTMLElement,
 		targetInput: HTMLInputElement,
 	): void {
-		const rect = targetInput.getBoundingClientRect();
+		const visualContainer = this.findVisualContainer(targetInput);
+		const rect = visualContainer.getBoundingClientRect();
 
 		picker.style.setProperty('position', 'fixed', 'important');
 		picker.style.setProperty(

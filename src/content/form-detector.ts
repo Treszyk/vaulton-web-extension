@@ -16,6 +16,7 @@ export class FormDetector {
 	private observer: MutationObserver | null = null;
 	private submitListeners: WeakSet<HTMLElement> = new WeakSet();
 	private processedInputs: Set<HTMLInputElement> = new Set();
+	private lastKnownValues: WeakMap<HTMLInputElement, string> = new WeakMap();
 	private isSubmitting = false;
 
 	detectForms(): LoginForm[] {
@@ -93,7 +94,11 @@ export class FormDetector {
 			if (this.processedInputs.has(input)) return;
 			if (!input.offsetParent) return;
 
-			const score = this.scoreCandidate(input);
+			let score = this.scoreCandidate(input);
+
+			if (this.isMultiStepContext(input)) {
+				score += 40;
+			}
 
 			if (score >= 70) {
 				const formElement = input.closest('form');
@@ -149,16 +154,39 @@ export class FormDetector {
 				this.isSubmitting = false;
 			}, 1000);
 
-			const username = form.usernameInput ? form.usernameInput.value : '';
-			const password = form.passwordInput ? form.passwordInput.value : '';
+			const username =
+				form.usernameInput?.value ||
+				(form.usernameInput
+					? this.lastKnownValues.get(form.usernameInput) || ''
+					: '');
+			const password =
+				form.passwordInput?.value ||
+				(form.passwordInput
+					? this.lastKnownValues.get(form.passwordInput) || ''
+					: '');
 
-			const safeUsername = username || 'unknown';
+			onSubmit({ username, password, form });
+		};
 
-			onSubmit({ username: safeUsername, password, form });
+		const snapValues = () => {
+			if (form.usernameInput && form.usernameInput.value) {
+				this.lastKnownValues.set(form.usernameInput, form.usernameInput.value);
+			}
+			if (form.passwordInput && form.passwordInput.value) {
+				this.lastKnownValues.set(form.passwordInput, form.passwordInput.value);
+			}
 		};
 
 		if (form.formElement) {
 			if (!this.submitListeners.has(form.formElement)) {
+				const preCaptureListener = () => {
+					snapValues();
+				};
+
+				form.formElement.addEventListener('submit', preCaptureListener, {
+					capture: true,
+				});
+
 				const listener = () => {
 					handleSubmit();
 				};
@@ -176,6 +204,13 @@ export class FormDetector {
 				const buttonEl = btn as HTMLButtonElement | HTMLInputElement;
 
 				if (!this.submitListeners.has(buttonEl)) {
+					buttonEl.addEventListener('mousedown', snapValues, {
+						capture: true,
+					});
+					buttonEl.addEventListener('pointerdown', snapValues, {
+						capture: true,
+					});
+
 					const buttonListener = () => {
 						handleSubmit();
 					};
@@ -205,6 +240,13 @@ export class FormDetector {
 						const buttonEl = btn as HTMLButtonElement | HTMLInputElement;
 
 						if (!this.submitListeners.has(buttonEl)) {
+							buttonEl.addEventListener('mousedown', snapValues, {
+								capture: true,
+							});
+							buttonEl.addEventListener('pointerdown', snapValues, {
+								capture: true,
+							});
+
 							const buttonListener = () => {
 								handleSubmit();
 							};
@@ -226,6 +268,10 @@ export class FormDetector {
 				docButtons.forEach((btn) => {
 					const buttonEl = btn as HTMLButtonElement;
 					if (!this.submitListeners.has(buttonEl)) {
+						buttonEl.addEventListener('mousedown', snapValues, {
+							capture: true,
+						});
+
 						const buttonListener = () => {
 							handleSubmit();
 						};
@@ -236,27 +282,13 @@ export class FormDetector {
 					}
 				});
 			}
+		}
 
-			if (form.passwordInput && !this.submitListeners.has(form.passwordInput)) {
-				const handleKeydown = (e: KeyboardEvent) => {
-					if (e.key === 'Enter') {
-						handleSubmit();
-					}
-				};
-				form.passwordInput.addEventListener('keydown', handleKeydown);
-				this.submitListeners.add(form.passwordInput);
-			} else if (
-				form.usernameInput &&
-				!this.submitListeners.has(form.usernameInput)
-			) {
-				const handleKeydown = (e: KeyboardEvent) => {
-					if (e.key === 'Enter') {
-						handleSubmit();
-					}
-				};
-				form.usernameInput.addEventListener('keydown', handleKeydown);
-				this.submitListeners.add(form.usernameInput);
-			}
+		if (form.usernameInput) {
+			form.usernameInput.addEventListener('blur', snapValues);
+		}
+		if (form.passwordInput) {
+			form.passwordInput.addEventListener('blur', snapValues);
 		}
 
 		if (primaryElement) this.submitListeners.add(primaryElement);
@@ -309,18 +341,20 @@ export class FormDetector {
 
 	private scoreCandidate(input: HTMLInputElement): number {
 		let score = 0;
+		const autocomplete = (input.autocomplete || '').toLowerCase();
+
+		if (autocomplete.includes('username') || autocomplete.includes('email'))
+			return 100;
+
 		const name = (input.name || '').toLowerCase();
 		const id = (input.id || '').toLowerCase();
-		const autocomplete = (input.autocomplete || '').toLowerCase();
 		const type = (input.type || '').toLowerCase();
 		const placeholder = (input.placeholder || '').toLowerCase();
-
-		if (autocomplete === 'username' || autocomplete === 'email') return 100;
 
 		if (type === 'email') score += 20;
 
 		const positiveRegex =
-			/^(user|login|email|account|id|u|phone|mobile)$|.*(user|login|email|account).*/;
+			/^(user|login|email|account|id|u|phone|mobile|identifier|identity)$|.*(user|login|email|account|identifier|identity|auth).*/;
 		if (positiveRegex.test(name)) score += 15;
 		if (positiveRegex.test(id)) score += 15;
 		if (positiveRegex.test(placeholder)) score += 10;
@@ -335,6 +369,48 @@ export class FormDetector {
 		if (name.includes('fake') || id.includes('fake')) score -= 100;
 
 		return score;
+	}
+
+	private isMultiStepContext(input: HTMLInputElement): boolean {
+		const container = input.closest('form') || input.parentElement;
+		if (!container) return false;
+
+		const hasPassword =
+			container.querySelector('input[type="password"]') !== null;
+		if (hasPassword) return false;
+
+		const nextButtonKeywords = [
+			'next',
+			'continue',
+			'login',
+			'sign',
+			'submit',
+			'proceed',
+			'forward',
+		];
+
+		const buttons = Array.from(
+			container.querySelectorAll(
+				'button, input[type="submit"], input[type="button"]',
+			),
+		);
+
+		return buttons.some((btn) => {
+			const isSubmitType = (btn as HTMLInputElement).type === 'submit';
+			const text = (
+				btn.textContent ||
+				(btn as HTMLInputElement).value ||
+				''
+			).toLowerCase();
+			const ariaLabel = (btn.getAttribute('aria-label') || '').toLowerCase();
+
+			const hasKeyword = nextButtonKeywords.some(
+				(kw) => text.includes(kw) || ariaLabel.includes(kw),
+			);
+
+			// High confidence if it's a submit-type button or has a standard keyword
+			return isSubmitType || hasKeyword;
+		});
 	}
 
 	private scoreRegistrationForm(
