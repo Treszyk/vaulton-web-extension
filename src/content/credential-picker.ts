@@ -83,7 +83,6 @@ export class CredentialPicker {
 				'important',
 			);
 			el.addEventListener('animationend', () => el.remove(), { once: true });
-			// Safety timeout
 			setTimeout(() => el.remove(), 250);
 		}
 	}
@@ -335,6 +334,7 @@ export class CredentialPicker {
 			justify-content: space-between;
 			align-items: center;
 		`;
+		header.className = 'vaulton-header';
 
 		header.innerHTML = `
 			<div style="flex: 1;">
@@ -390,10 +390,24 @@ export class CredentialPicker {
 			.vaulton-btn-reveal {
 				min-width: 80px;
 			}
+			.vaulton-credential-picker[data-vaulton-narrow="true"] .vaulton-header {
+				flex-direction: column;
+				align-items: stretch;
+				gap: 12px;
+			}
+			.vaulton-credential-picker[data-vaulton-narrow="true"] .vaulton-header-tools {
+				flex-direction: column;
+				align-items: stretch;
+				width: 100%;
+			}
+			.vaulton-credential-picker[data-vaulton-narrow="true"] .vaulton-btn {
+				width: 100%;
+			}
 		`;
 		header.appendChild(style);
 
 		const toolsContainer = document.createElement('div');
+		toolsContainer.className = 'vaulton-header-tools';
 		toolsContainer.style.cssText = `
 			display: flex;
 			align-items: center;
@@ -440,7 +454,7 @@ export class CredentialPicker {
 					handleRevert();
 				}
 			} else {
-				revealBtn.textContent = 'REVEAL';
+				revealBtn.textContent = 'REVEAL INPUT';
 				revealBtn.classList.remove('vaulton-btn-primary');
 				revealBtn.classList.add('vaulton-btn-secondary');
 
@@ -478,7 +492,8 @@ export class CredentialPicker {
 			targetInput.type === 'password' ||
 			targetInput.autocomplete?.toLowerCase().includes('password') ||
 			targetInput.autocomplete?.toLowerCase() === 'current-password' ||
-			targetInput.autocomplete?.toLowerCase() === 'new-password';
+			targetInput.autocomplete?.toLowerCase() === 'new-password' ||
+			!!targetInput.dataset.vaultonRevealExpires;
 
 		if (isPasswordInput) {
 			toolsContainer.appendChild(revealBtn);
@@ -695,5 +710,11 @@ export class CredentialPicker {
 
 		picker.style.setProperty('left', `${rect.left}px`, 'important');
 		picker.style.setProperty('width', `${rect.width}px`, 'important');
+
+		if (rect.width < 325) {
+			picker.setAttribute('data-vaulton-narrow', 'true');
+		} else {
+			picker.removeAttribute('data-vaulton-narrow');
+		}
 	}
 }

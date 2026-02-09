@@ -196,7 +196,6 @@ export class ButtonInjector {
 		const rightIconOffset = hasRightIcon
 			? Math.max(originalPaddingRight, 30)
 			: 0;
-		const originalBoxSizing = initialStyle.boxSizing;
 
 		const update = () => {
 			if (!input.isConnected || !button.isConnected) {
@@ -239,18 +238,19 @@ export class ButtonInjector {
 			button.style.setProperty('top', `${top}px`, 'important');
 			button.style.setProperty('left', `${finalLeft}px`, 'important');
 
-			if (input.style.boxSizing !== 'border-box') {
-				input.style.setProperty('box-sizing', 'border-box', 'important');
-			}
 			const targetPadding = rightIconOffset + iconWidth + rightMargin + 4;
 
-			if (Math.abs(parseFloat(currentStyle.paddingRight) - targetPadding) > 1) {
-				input.style.setProperty(
-					'padding-right',
-					`${targetPadding}px`,
-					'important',
-				);
-				lastAppliedPadding = targetPadding;
+			if (currentStyle.boxSizing === 'border-box') {
+				if (
+					Math.abs(parseFloat(currentStyle.paddingRight) - targetPadding) > 1
+				) {
+					input.style.setProperty(
+						'padding-right',
+						`${targetPadding}px`,
+						'important',
+					);
+					lastAppliedPadding = targetPadding;
+				}
 			}
 		};
 
@@ -284,9 +284,6 @@ export class ButtonInjector {
 			button.remove();
 			if (lastAppliedPadding > 0) {
 				input.style.removeProperty('padding-right');
-			}
-			if (originalBoxSizing !== 'border-box') {
-				input.style.removeProperty('box-sizing');
 			}
 		};
 	}

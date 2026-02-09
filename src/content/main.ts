@@ -160,16 +160,15 @@ async function handleButtonClick(
 			}
 		};
 
-		(form.isRegistration,
-			credentialPicker.show(
-				response.credentials,
-				targetInput,
-				handleSelect,
-				handleGenerate,
-				handleShowAll,
-				domain,
-				form.isRegistration,
-			));
+		credentialPicker.show(
+			response.credentials,
+			targetInput,
+			handleSelect,
+			handleGenerate,
+			handleShowAll,
+			domain,
+			form.isRegistration,
+		);
 
 		if (form.usernameInput) {
 			pendingLoginState = {
