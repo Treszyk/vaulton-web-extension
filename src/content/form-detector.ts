@@ -1,6 +1,7 @@
 export interface LoginForm {
 	usernameInput: HTMLInputElement | null;
 	passwordInput: HTMLInputElement | null;
+	confirmPasswordInput?: HTMLInputElement | null;
 	formElement: HTMLFormElement | null;
 	isRegistration?: boolean;
 }
@@ -37,7 +38,36 @@ export class FormDetector {
 
 			const usernameInput = this.findUsernameInput(passwordInput);
 
+			let confirmPasswordInput: HTMLInputElement | null = null;
 			const formElement = passwordInput.closest('form');
+
+			if (formElement) {
+				const otherPasswords = Array.from(
+					formElement.querySelectorAll<HTMLInputElement>(
+						'input[type="password"]',
+					),
+				).filter((input) => input !== passwordInput);
+
+				confirmPasswordInput =
+					otherPasswords.find((input) => {
+						const name = (input.name || '').toLowerCase();
+						const id = (input.id || '').toLowerCase();
+						const aria = (input.getAttribute('aria-label') || '').toLowerCase();
+						const placeholder = (input.placeholder || '').toLowerCase();
+
+						return (
+							name.includes('confirm') ||
+							name.includes('repeat') ||
+							name.includes('verify') ||
+							id.includes('confirm') ||
+							id.includes('repeat') ||
+							aria.includes('confirm') ||
+							aria.includes('repeat') ||
+							placeholder.includes('confirm') ||
+							placeholder.includes('repeat')
+						);
+					}) || null;
+			}
 			const isRegistration = this.scoreRegistrationForm(
 				passwordInput,
 				formElement,
@@ -46,10 +76,12 @@ export class FormDetector {
 			this.forms.push({
 				usernameInput,
 				passwordInput,
+				confirmPasswordInput,
 				formElement,
 				isRegistration,
 			});
 			this.processedInputs.add(passwordInput);
+			if (confirmPasswordInput) this.processedInputs.add(confirmPasswordInput);
 			if (usernameInput) {
 				this.processedInputs.add(usernameInput);
 			}
@@ -102,6 +134,13 @@ export class FormDetector {
 
 			if (score >= 70) {
 				const formElement = input.closest('form');
+
+				if (formElement) {
+					const isFormHandled = this.forms.some(
+						(f) => f.formElement === formElement && f.passwordInput !== null,
+					);
+					if (isFormHandled) return;
+				}
 				const isRegistration = this.scoreRegistrationForm(input, formElement);
 
 				this.forms.push({
@@ -328,7 +367,7 @@ export class FormDetector {
 
 		for (const candidate of validCandidates) {
 			const score = this.scoreCandidate(candidate);
-			if (score >= maxScore) {
+			if (score > maxScore) {
 				maxScore = score;
 				bestCandidate = candidate;
 			}
@@ -408,7 +447,6 @@ export class FormDetector {
 				(kw) => text.includes(kw) || ariaLabel.includes(kw),
 			);
 
-			// High confidence if it's a submit-type button or has a standard keyword
 			return isSubmitType || hasKeyword;
 		});
 	}

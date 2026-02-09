@@ -4,12 +4,16 @@ export class AutofillEngine {
 		passwordInput: HTMLInputElement | null,
 		username: string,
 		password: string,
+		confirmPasswordInput?: HTMLInputElement | null,
 	): void {
 		if (usernameInput) {
 			this.fillInput(usernameInput, username);
 		}
 		if (passwordInput) {
 			this.fillInput(passwordInput, password);
+		}
+		if (confirmPasswordInput) {
+			this.fillInput(confirmPasswordInput, password);
 		}
 
 		setTimeout(() => {
@@ -29,7 +33,7 @@ export class AutofillEngine {
 		}, 100);
 	}
 
-	private fillInput(input: HTMLInputElement, value: string): void {
+	public fillInput(input: HTMLInputElement, value: string): void {
 		if (
 			input.readOnly ||
 			input.disabled ||

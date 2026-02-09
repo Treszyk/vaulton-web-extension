@@ -113,6 +113,7 @@ async function handleButtonClick(
 				form.passwordInput,
 				cred.username,
 				cred.password,
+				form.confirmPasswordInput,
 			);
 		};
 
@@ -129,9 +130,10 @@ async function handleButtonClick(
 			}
 
 			const newPassword = generateSecurePassword(20);
-			target.value = newPassword;
-			target.dispatchEvent(new Event('input', { bubbles: true }));
-			target.dispatchEvent(new Event('change', { bubbles: true }));
+			autofillEngine.fillInput(target, newPassword);
+			if (form.confirmPasswordInput) {
+				autofillEngine.fillInput(form.confirmPasswordInput, newPassword);
+			}
 		};
 
 		const handleShowAll = async () => {

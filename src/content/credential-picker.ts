@@ -34,6 +34,7 @@ export class CredentialPicker {
 			onShowAll,
 			domain,
 			isRegistration,
+			targetInput,
 		);
 		const shadow = OverlayManager.getShadowRoot();
 		shadow.appendChild(picker);
@@ -234,6 +235,7 @@ export class CredentialPicker {
 		onShowAll?: () => void,
 		domain?: string,
 		isRegistration?: boolean,
+		targetInput?: HTMLInputElement,
 	): HTMLElement {
 		const picker = document.createElement('div');
 		picker.className = 'vaulton-credential-picker';
@@ -255,8 +257,13 @@ export class CredentialPicker {
 			flex-direction: column !important;
 		`;
 
-		if (domain && onShowAll) {
-			const header = this.createHeader(domain, credentials.length, onShowAll);
+		if (domain && onShowAll && targetInput) {
+			const header = this.createHeader(
+				domain,
+				credentials.length,
+				onShowAll,
+				targetInput,
+			);
 			picker.appendChild(header);
 		}
 
@@ -318,6 +325,7 @@ export class CredentialPicker {
 		domain: string,
 		count: number,
 		onShowAll: () => void,
+		targetInput: HTMLInputElement,
 	): HTMLElement {
 		const header = document.createElement('div');
 		header.style.cssText = `
@@ -339,36 +347,154 @@ export class CredentialPicker {
 			</div>
 		`;
 
-		const showAllBtn = document.createElement('button');
-		showAllBtn.textContent = 'Show All';
-		showAllBtn.style.cssText = `
-			background: #7c3aed;
-			color: white;
-			border: none;
-			border-radius: 8px;
-			padding: 6px 12px;
-			font-size: 11px;
-			font-weight: 600;
-			cursor: pointer;
-			text-transform: uppercase;
-			letter-spacing: 0.05em;
-			transition: background 0.2s;
+		const style = document.createElement('style');
+		style.textContent = `
+			.vaulton-btn {
+				box-sizing: border-box;
+				padding: 0 12px;
+				height: 28px;
+				border-radius: 8px;
+				font-family: 'Inter', system-ui, sans-serif;
+				font-size: 11px;
+				font-weight: 600;
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
+				cursor: pointer;
+				transition: all 0.2s;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				white-space: nowrap;
+				font-variant-numeric: tabular-nums;
+				border-width: 1px;
+				border-style: solid;
+			}
+			.vaulton-btn-secondary {
+				background: transparent;
+				color: #e4e4e7;
+				border-color: #3f3f46;
+			}
+			.vaulton-btn-secondary:hover {
+				background: rgba(255, 255, 255, 0.05);
+				border-color: #52525b;
+			}
+			.vaulton-btn-primary {
+				background: #7c3aed;
+				color: white;
+				border-color: #7c3aed;
+			}
+			.vaulton-btn-primary:hover {
+				background: #8b5cf6;
+				border-color: #8b5cf6;
+			}
+			.vaulton-btn-reveal {
+				min-width: 80px;
+			}
+		`;
+		header.appendChild(style);
+
+		const toolsContainer = document.createElement('div');
+		toolsContainer.style.cssText = `
+			display: flex;
+			align-items: center;
+			gap: 8px;
 		`;
 
-		showAllBtn.addEventListener('mouseenter', () => {
-			showAllBtn.style.background = '#8b5cf6';
-		});
+		const revealBtn = document.createElement('button');
+		revealBtn.type = 'button';
+		revealBtn.className =
+			'vaulton-btn vaulton-btn-secondary vaulton-btn-reveal';
 
-		showAllBtn.addEventListener('mouseleave', () => {
-			showAllBtn.style.background = '#7c3aed';
-		});
+		const REVEAL_DURATION_MS = 15000;
+		let countdownInterval: number | null = null;
+
+		const clearTimer = () => {
+			if (countdownInterval) {
+				clearInterval(countdownInterval);
+				countdownInterval = null;
+			}
+		};
+
+		const updateState = () => {
+			const expiresAttr = targetInput.dataset.vaultonRevealExpires;
+			const now = Date.now();
+
+			if (expiresAttr) {
+				const expires = parseInt(expiresAttr, 10);
+				if (expires > now) {
+					const msLeft = expires - now;
+					const secondsLeft = Math.ceil(msLeft / 1000);
+
+					if (targetInput.type !== 'text') {
+						targetInput.type = 'text';
+					}
+
+					revealBtn.textContent = `HIDE (${secondsLeft}s)`;
+					revealBtn.classList.remove('vaulton-btn-secondary');
+					revealBtn.classList.add('vaulton-btn-primary');
+
+					if (!countdownInterval) {
+						countdownInterval = window.setInterval(updateState, 200);
+					}
+				} else {
+					handleRevert();
+				}
+			} else {
+				revealBtn.textContent = 'REVEAL';
+				revealBtn.classList.remove('vaulton-btn-primary');
+				revealBtn.classList.add('vaulton-btn-secondary');
+
+				clearTimer();
+			}
+		};
+
+		const handleRevert = () => {
+			targetInput.type = 'password';
+			delete targetInput.dataset.vaultonRevealExpires;
+			clearTimer();
+			updateState();
+		};
+
+		const handleToggle = (e: MouseEvent) => {
+			e.preventDefault();
+			e.stopPropagation();
+			const isRevealed = !!targetInput.dataset.vaultonRevealExpires;
+
+			if (isRevealed) {
+				handleRevert();
+			} else {
+				const expires = Date.now() + REVEAL_DURATION_MS;
+				targetInput.dataset.vaultonRevealExpires = expires.toString();
+				targetInput.type = 'text';
+				updateState();
+			}
+		};
+
+		updateState();
+
+		revealBtn.addEventListener('click', handleToggle);
+
+		const isPasswordInput =
+			targetInput.type === 'password' ||
+			targetInput.autocomplete?.toLowerCase().includes('password') ||
+			targetInput.autocomplete?.toLowerCase() === 'current-password' ||
+			targetInput.autocomplete?.toLowerCase() === 'new-password';
+
+		if (isPasswordInput) {
+			toolsContainer.appendChild(revealBtn);
+		}
+
+		const showAllBtn = document.createElement('button');
+		showAllBtn.textContent = 'Show All';
+		showAllBtn.className = 'vaulton-btn vaulton-btn-primary';
 
 		showAllBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
 			onShowAll();
 		});
 
-		header.appendChild(showAllBtn);
+		toolsContainer.appendChild(showAllBtn);
+		header.appendChild(toolsContainer);
 		return header;
 	}
 
