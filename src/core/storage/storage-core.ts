@@ -17,6 +17,7 @@ export class StorageCore {
 		EXCLUDED_SITES: 'ExcludedSites',
 		LAST_SYNC_TIME: 'LastSyncTime',
 		LAST_VERIFY_TIME: 'LastVerifyTime',
+		AUTOFILL_ENABLED: 'AutofillEnabled',
 	};
 
 	private static readonly KEY_CHART: {
@@ -34,11 +35,13 @@ export class StorageCore {
 		[StorageCore.KEYS.PENDING_SAVE]: 'session',
 		[StorageCore.KEYS.LAST_SYNC_TIME]: 'session',
 		[StorageCore.KEYS.LAST_VERIFY_TIME]: 'session',
+		[StorageCore.KEYS.AUTOFILL_ENABLED]: 'local',
 	};
 
 	private static readonly SCOPED_KEYS = [
 		StorageCore.KEYS.LOCKOUT_STRATEGY,
 		StorageCore.KEYS.EXCLUDED_SITES,
+		StorageCore.KEYS.AUTOFILL_ENABLED,
 	];
 
 	private static strategyCache: {

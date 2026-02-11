@@ -2,6 +2,7 @@ import { Component, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SessionService } from '../../../core/auth/session.service';
 import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component';
+import { StorageCore } from '../../../core/storage/storage-core';
 
 @Component({
 	selector: 'app-account',
@@ -20,6 +21,24 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 							}}</code>
 							<p class="item-desc">Your unique, anonymous identifier.</p>
 						</div>
+					</div>
+
+					<div class="action-item">
+						<div class="item-info">
+							<span class="item-label">Enable Autofill</span>
+							<p class="item-desc">
+								Automatically detect and fill login forms.
+							</p>
+						</div>
+						<label
+							class="toggle-switch"
+							*ngIf="isLoaded()">
+							<input
+								type="checkbox"
+								[checked]="autofillEnabled()"
+								(change)="toggleAutofill($event)" />
+							<span class="slider"></span>
+						</label>
 					</div>
 
 					<div class="action-item">
@@ -52,7 +71,7 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 						<div class="item-info">
 							<span class="item-label">Wipe Local Data</span>
 							<p class="item-desc">
-								Logout and delete all locally stored encrypted data.
+								Logout and delete all locally stored user data.
 							</p>
 						</div>
 						<button
@@ -215,6 +234,53 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 				transform: translateY(-1px);
 				box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 			}
+
+			.toggle-switch {
+				position: relative;
+				display: inline-block;
+				width: 44px;
+				height: 24px;
+			}
+
+			.toggle-switch input {
+				opacity: 0;
+				width: 0;
+				height: 0;
+			}
+
+			.slider {
+				position: absolute;
+				cursor: pointer;
+				top: 0;
+				left: 0;
+				right: 0;
+				bottom: 0;
+				background-color: #27272a;
+				transition: 0.4s;
+				border-radius: 24px;
+				border: 1px solid #3f3f46;
+			}
+
+			.slider:before {
+				position: absolute;
+				content: '';
+				height: 18px;
+				width: 18px;
+				left: 2px;
+				bottom: 2px;
+				background-color: white;
+				transition: 0.4s;
+				border-radius: 50%;
+			}
+
+			input:checked + .slider {
+				background-color: #7c3aed;
+				border-color: #8b5cf6;
+			}
+
+			input:checked + .slider:before {
+				transform: translateX(20px);
+			}
 		`,
 	],
 })
@@ -224,6 +290,28 @@ export class AccountComponent {
 	showLogoutConfirm = signal(false);
 	showLogoutAllConfirm = signal(false);
 	showWipeConfirm = signal(false);
+	autofillEnabled = signal(false);
+	isLoaded = signal(false);
+
+	constructor() {
+		this.loadAutofillState();
+	}
+
+	async loadAutofillState() {
+		const result = await StorageCore.get(StorageCore.KEYS.AUTOFILL_ENABLED);
+		this.autofillEnabled.set(result !== false);
+		this.isLoaded.set(true);
+	}
+
+	async toggleAutofill(event: Event) {
+		const isChecked = (event.target as HTMLInputElement).checked;
+		this.autofillEnabled.set(isChecked);
+		await StorageCore.set(
+			StorageCore.KEYS.AUTOFILL_ENABLED,
+			isChecked,
+			'local',
+		);
+	}
 
 	async onLogout() {
 		this.showLogoutConfirm.set(false);

@@ -2,7 +2,7 @@ import { FormDetector, LoginForm, FormSubmitData } from './form-detector';
 import { ButtonInjector } from './button-injector';
 import { CredentialPicker, CredentialOption } from './credential-picker';
 import { AutofillEngine } from './autofill-engine';
-import { browserApi } from '../core/storage/storage-core';
+import { browserApi, StorageCore } from '../core/storage/storage-core';
 import { THROTTLES } from '../core/config/throttles';
 import { SavePrompt } from './save-prompt';
 import { getBaseDomain } from '../core/utils/domain';
@@ -347,6 +347,16 @@ async function initialize(): Promise<void> {
 
 	const currentUrl = window.location.href;
 	const baseDomain = getBaseDomain(currentUrl);
+
+	const autofillEnabled = await StorageCore.get(
+		StorageCore.KEYS.AUTOFILL_ENABLED,
+	);
+
+	if (autofillEnabled === false) {
+		console.log('[Vaulton] Autofill is disabled by user preference.');
+		return;
+	}
+
 	console.log('[Vaulton] Checking pending saves for domain:', baseDomain);
 
 	if (baseDomain) {

@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { VaultListComponent } from '../vault-list/vault-list.component';
 import { SecurityComponent } from '../security/security.component';
 import { AccountComponent } from '../account/account.component';
+import { OnboardingModalComponent } from '../onboarding-modal/onboarding-modal.component';
+import { StorageCore } from '../../../core/storage/storage-core';
 
 type Tab = 'vault' | 'security' | 'account';
 
@@ -14,6 +16,7 @@ type Tab = 'vault' | 'security' | 'account';
 		VaultListComponent,
 		SecurityComponent,
 		AccountComponent,
+		OnboardingModalComponent,
 	],
 	template: `
 		<div class="layout-container">
@@ -80,6 +83,10 @@ type Tab = 'vault' | 'security' | 'account';
 					[style.transform]="getIndicatorTransform()"
 					[style.width]="getIndicatorWidth()"></div>
 			</nav>
+
+			<app-onboarding-modal
+				*ngIf="showOnboarding()"
+				(choice)="onOnboardingChoice($event)"></app-onboarding-modal>
 		</div>
 	`,
 	styles: [
@@ -270,6 +277,24 @@ type Tab = 'vault' | 'security' | 'account';
 })
 export class MainLayoutComponent {
 	activeTab = signal<Tab>('vault');
+	showOnboarding = signal(false);
+
+	constructor() {
+		this.checkOnboarding();
+	}
+
+	async checkOnboarding() {
+		const result = await StorageCore.get(StorageCore.KEYS.AUTOFILL_ENABLED);
+
+		if (result === undefined || result === null) {
+			this.showOnboarding.set(true);
+		}
+	}
+
+	async onOnboardingChoice(enabled: boolean) {
+		await StorageCore.set(StorageCore.KEYS.AUTOFILL_ENABLED, enabled, 'local');
+		this.showOnboarding.set(false);
+	}
 
 	setTab(tab: Tab) {
 		this.activeTab.set(tab);
