@@ -234,9 +234,11 @@ textarea:focus {
 }
 
 .btn-primary:disabled {
-	opacity: 0.3;
+	background: #27272a;
+	color: #a1a1aa;
 	cursor: not-allowed;
 	box-shadow: none;
+	opacity: 1;
 }
 
 .spinner {

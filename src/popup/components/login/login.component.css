@@ -100,8 +100,11 @@ input:focus {
 	transform: translateY(0) scale(0.98);
 }
 .btn-primary:disabled {
-	opacity: 0.3;
+	background: #27272a;
+	color: #a1a1aa;
 	cursor: not-allowed;
+	box-shadow: none;
+	opacity: 1;
 }
 .persistence-toggle {
 	display: flex;

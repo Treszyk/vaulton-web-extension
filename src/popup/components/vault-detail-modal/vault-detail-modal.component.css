@@ -242,6 +242,20 @@
 	box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
 }
 
+.action-pill.pill-confirm:hover {
+	background: #fb923c;
+	border-color: #fdba74;
+	color: white;
+	box-shadow: 0 6px 16px rgba(249, 115, 22, 0.4);
+}
+
+.action-pill.pill-success:hover {
+	background: #34d399;
+	border-color: #6ee7b7;
+	color: white;
+	box-shadow: 0 6px 16px rgba(16, 185, 129, 0.5);
+}
+
 .modal-footer {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
@@ -289,9 +303,10 @@
 }
 
 .btn-delete:hover {
-	background: rgba(255, 77, 77, 0.05);
-	border-color: rgba(255, 77, 77, 0.1);
-	color: #ffffff;
+	background: #ef4444 !important;
+	border-color: #ef4444 !important;
+	color: black !important;
+	box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
 
 .btn-delete-active {

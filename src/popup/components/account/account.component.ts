@@ -209,11 +209,11 @@ import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component'
 			}
 
 			.btn-logout:hover {
-				background: rgba(255, 77, 77, 0.05);
-				border-color: rgba(255, 77, 77, 0.1);
-				color: #ffffff;
+				background: #ef4444 !important;
+				border-color: #ef4444 !important;
+				color: black !important;
 				transform: translateY(-1px);
-				box-shadow: 0 2px 8px rgba(255, 77, 77, 0.15);
+				box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 			}
 		`,
 	],
