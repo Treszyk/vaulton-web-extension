@@ -19,18 +19,18 @@ export class ButtonInjector {
 				.vaulton-autofill-btn {
 					display: none;
 					position: fixed !important;
-					width: 28px !important;
-					height: 28px !important;
+					width: 1.75rem !important;
+					height: 1.75rem !important;
 					padding: 0 !important;
 					background: white !important;
-					border: 1.5px solid #a855f7 !important;
-					border-radius: 6px !important;
+					border: 0.09375rem solid #a855f7 !important;
+					border-radius: 0.375rem !important;
 					cursor: pointer !important;
 					z-index: 2147483647 !important;
 					transition: border-color 0.2s, transform 0.2s !important;
 					pointer-events: auto !important;
 					box-sizing: border-box !important;
-					box-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
+					box-shadow: 0 0.0625rem 0.125rem rgba(0,0,0,0.1) !important;
 				}
 				.vaulton-autofill-btn:hover {
 					border-color: #c084fc !important;
@@ -222,12 +222,19 @@ export class ButtonInjector {
 
 			button.style.display = 'block';
 
-			const top = inputRect.top + inputRect.height / 2 - 14;
+			const fontSize =
+				parseFloat(
+					window.getComputedStyle(document.documentElement).fontSize,
+				) || 16;
+			const iconWidthRem = 1.75;
+			const rightMarginRem = 0.25;
+			const iconWidth = iconWidthRem * fontSize;
+			const rightMargin = rightMarginRem * fontSize;
+
+			const top = inputRect.top + inputRect.height / 2 - iconWidth / 2;
 
 			const currentStyle = window.getComputedStyle(input);
 			const borderRight = parseFloat(currentStyle.borderRightWidth) || 0;
-			const iconWidth = 28;
-			const rightMargin = 4;
 
 			const rightOffset = rightIconOffset + iconWidth + rightMargin;
 

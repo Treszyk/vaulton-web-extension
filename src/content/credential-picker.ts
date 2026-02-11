@@ -95,13 +95,13 @@ export class CredentialPicker {
 		picker.style.cssText = `
 			position: absolute !important;
 			background: #18181b !important;
-			border: 1px solid #27272a !important;
-			border-radius: 12px !important;
-			padding: 16px !important;
+			border: 0.0625rem solid #27272a !important;
+			border-radius: 0.75rem !important;
+			padding: 1rem !important;
 			margin: 0 !important;
 			box-sizing: border-box !important;
 			z-index: 999999 !important;
-			box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+			box-shadow: 0 0.625rem 2.5rem rgba(0, 0, 0, 0.5) !important;
 			font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
 			animation: vaultonPickerSlideIn 0.2s ease-out !important;
 			display: flex !important;
@@ -111,23 +111,23 @@ export class CredentialPicker {
 		`;
 
 		picker.innerHTML = `
-			<div style="display: flex !important; justify-content: center !important; margin-bottom: 12px; color: #a855f7;">
-				<svg style="width: 32px; height: 32px;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+			<div style="display: flex !important; justify-content: center !important; margin-bottom: 0.75rem; color: #a855f7;">
+				<svg style="width: 2rem; height: 2rem;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
 					<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
 					<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
 				</svg>
 			</div>
-			<div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">Vault is Locked</div>
-			<div style="font-size: 13px; color: #d4d4d8; margin-bottom: 16px;">Please log in to the Vaulton extension to access your credentials.</div>
+			<div style="font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem;">Vault is Locked</div>
+			<div style="font-size: 0.875rem; color: #d4d4d8; margin-bottom: 1rem;">Please log in to the Vaulton extension to access your credentials.</div>
 		`;
 
 		const loginNote = document.createElement('div');
 		loginNote.style.cssText = `
-			font-size: 11px;
+			font-size: 0.875rem;
 			color: #a1a1aa;
 			background: #27272a;
-			padding: 8px;
-			border-radius: 6px;
+			padding: 0.5rem;
+			border-radius: 0.375rem;
 		`;
 		loginNote.textContent =
 			'Tip: Click the Vaulton icon in your browser toolbar to unlock.';
@@ -163,13 +163,13 @@ export class CredentialPicker {
 		picker.style.cssText = `
 			position: absolute !important;
 			background: #18181b !important;
-			border: 1px solid #27272a !important;
-			border-radius: 12px !important;
-			padding: 16px !important;
+			border: 0.0625rem solid #27272a !important;
+			border-radius: 0.75rem !important;
+			padding: 1rem !important;
 			margin: 0 !important;
 			box-sizing: border-box !important;
 			z-index: 999999 !important;
-			box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+			box-shadow: 0 0.625rem 2.5rem rgba(0, 0, 0, 0.5) !important;
 			font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
 			animation: vaultonPickerSlideIn 0.2s ease-out !important;
 			display: flex !important;
@@ -179,14 +179,14 @@ export class CredentialPicker {
 		`;
 
 		picker.innerHTML = `
-			<div style="display: flex !important; justify-content: center !important; margin-bottom: 12px; color: #a1a1aa;">
-				<svg style="width: 32px; height: 32px;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+			<div style="display: flex !important; justify-content: center !important; margin-bottom: 0.75rem; color: #a1a1aa;">
+				<svg style="width: 2rem; height: 2rem;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
 					<path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
 					<line x1="12" y1="2" x2="12" y2="12"></line>
 				</svg>
 			</div>
-			<div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">Connection Lost</div>
-			<div style="font-size: 13px; color: #d4d4d8; margin-bottom: 16px;">The extension has been updated or reloaded. Please refresh to continue.</div>
+			<div style="font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem;">Connection Lost</div>
+			<div style="font-size: 0.875rem; color: #d4d4d8; margin-bottom: 1rem;">The extension has been updated or reloaded. Please refresh to continue.</div>
 		`;
 
 		const refreshBtn = document.createElement('button');
@@ -194,9 +194,9 @@ export class CredentialPicker {
 			background: #7c3aed;
 			color: white;
 			border: none;
-			border-radius: 8px;
-			padding: 8px 16px;
-			font-size: 13px;
+			border-radius: 0.5rem;
+			padding: 0.5rem 1rem;
+			font-size: 0.875rem;
 			font-weight: 600;
 			cursor: pointer;
 			transition: background 0.2s;
@@ -241,15 +241,15 @@ export class CredentialPicker {
 		picker.style.cssText = `
 			position: absolute !important;
 			background: #18181b !important;
-			border: 1px solid #27272a !important;
-			border-radius: 12px !important;
+			border: 0.0625rem solid #27272a !important;
+			border-radius: 0.75rem !important;
 			padding: 0 !important;
 			margin: 0 !important;
 			box-sizing: border-box !important;
 			min-width: 0 !important;
-			max-height: 420px !important;
+			max-height: 26.25rem !important;
 			z-index: 999999 !important;
-			box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+			box-shadow: 0 0.625rem 2.5rem rgba(0, 0, 0, 0.5) !important;
 			font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
 			animation: vaultonPickerSlideIn 0.2s ease-out !important;
 			display: flex !important;
@@ -268,12 +268,12 @@ export class CredentialPicker {
 
 		const listContainer = document.createElement('div');
 		listContainer.style.cssText = `
-			padding: 8px;
+			padding: 0.5rem;
 			overflow-y: auto;
 			overflow-x: hidden;
 			flex: 1;
 			min-height: 0;
-			max-height: 320px !important;
+			max-height: 20rem !important;
 		`;
 
 		const genItem = this.createGenerationItem(onGenerate, isRegistration);
@@ -283,9 +283,9 @@ export class CredentialPicker {
 			if (credentials.length > 0) {
 				const separator = document.createElement('div');
 				separator.style.cssText = `
-					height: 1px;
+					height: 0.0625rem;
 					background: #27272a;
-					margin: 8px 12px;
+					margin: 0.5rem 0.75rem;
 				`;
 				listContainer.appendChild(separator);
 			}
@@ -293,7 +293,7 @@ export class CredentialPicker {
 
 		if (credentials.length === 0 && !isRegistration) {
 			listContainer.innerHTML = `
-				<div style="padding: 16px; text-align: center; color: #d4d4d8; font-size: 13px;">
+				<div style="padding: 1rem; text-align: center; color: #d4d4d8; font-size: 0.875rem;">
 					No credentials found${domain ? ` for <strong>${escapeHtml(domain)}</strong>` : ''}
 				</div>
 			`;
@@ -307,9 +307,9 @@ export class CredentialPicker {
 		if (!isRegistration) {
 			const separator = document.createElement('div');
 			separator.style.cssText = `
-				height: 1px;
+				height: 0.0625rem;
 				background: #27272a;
-				margin: 8px 12px;
+				margin: 0.5rem 0.75rem;
 			`;
 			listContainer.appendChild(separator);
 			listContainer.appendChild(genItem);
@@ -328,8 +328,8 @@ export class CredentialPicker {
 	): HTMLElement {
 		const header = document.createElement('div');
 		header.style.cssText = `
-			padding: 12px 12px 8px 12px;
-			border-bottom: 1px solid #27272a;
+			padding: 0.75rem 0.75rem 0.5rem 0.75rem;
+			border-bottom: 0.0625rem solid #27272a;
 			display: flex;
 			justify-content: space-between;
 			align-items: center;
@@ -338,10 +338,10 @@ export class CredentialPicker {
 
 		header.innerHTML = `
 			<div style="flex: 1;">
-				<div style="color: #d4d4d8; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">
+				<div style="color: #d4d4d8; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
 					Credentials for
 				</div>
-				<div style="color: white; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+				<div style="color: white; font-size: 0.875rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
 					${escapeHtml(domain)} ${count > 0 ? `(${count})` : ''}
 				</div>
 			</div>
@@ -351,11 +351,11 @@ export class CredentialPicker {
 		style.textContent = `
 			.vaulton-btn {
 				box-sizing: border-box;
-				padding: 0 12px;
-				height: 28px;
-				border-radius: 8px;
+				padding: 0 0.75rem;
+				height: 1.75rem;
+				border-radius: 0.5rem;
 				font-family: 'Inter', system-ui, sans-serif;
-				font-size: 11px;
+				font-size: 0.875rem;
 				font-weight: 600;
 				text-transform: uppercase;
 				letter-spacing: 0.05em;
@@ -366,7 +366,7 @@ export class CredentialPicker {
 				justify-content: center;
 				white-space: nowrap;
 				font-variant-numeric: tabular-nums;
-				border-width: 1px;
+				border-width: 0.0625rem;
 				border-style: solid;
 			}
 			.vaulton-btn-secondary {
@@ -388,12 +388,12 @@ export class CredentialPicker {
 				border-color: #8b5cf6;
 			}
 			.vaulton-btn-reveal {
-				min-width: 80px;
+				min-width: 5rem;
 			}
 			.vaulton-credential-picker[data-vaulton-narrow="true"] .vaulton-header {
 				flex-direction: column;
 				align-items: stretch;
-				gap: 12px;
+				gap: 0.75rem;
 			}
 			.vaulton-credential-picker[data-vaulton-narrow="true"] .vaulton-header-tools {
 				flex-direction: column;
@@ -411,7 +411,7 @@ export class CredentialPicker {
 		toolsContainer.style.cssText = `
 			display: flex;
 			align-items: center;
-			gap: 8px;
+			gap: 0.5rem;
 		`;
 
 		const revealBtn = document.createElement('button');
@@ -526,27 +526,27 @@ export class CredentialPicker {
 		const subColor = isRegistration ? '#ddd6fe' : '#a1a1aa';
 
 		item.style.cssText = `
-			padding: 10px 12px;
+			padding: 0.625rem 0.75rem;
 			cursor: pointer;
-			border-radius: 8px;
+			border-radius: 0.5rem;
 			transition: all 0.2s;
 			background: ${bg};
 			display: flex;
 			align-items: center;
-			gap: 10px;
+			gap: 0.625rem;
 		`;
 
 		item.innerHTML = `
 			<div style="flex-shrink: 0; color: ${textColor};">
-				<svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+				<svg style="width: 1.25rem; height: 1.25rem;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
 					<path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5z"></path>
 				</svg>
 			</div>
 			<div style="flex: 1;">
-				<div style="color: ${textColor}; font-size: 14px; font-weight: 600;">
+				<div style="color: ${textColor}; font-size: 1rem; font-weight: 600;">
 					Generate Secure Password
 				</div>
-				<div style="color: ${subColor}; font-size: 11px;">
+				<div style="color: ${subColor}; font-size: 0.875rem;">
 					Created with high entropy
 				</div>
 			</div>
@@ -601,18 +601,18 @@ export class CredentialPicker {
 		const item = document.createElement('div');
 		item.className = 'vaulton-credential-item';
 		item.style.cssText = `
-			padding: 10px 12px;
+			padding: 0.625rem 0.75rem;
 			cursor: pointer;
-			border-radius: 8px;
+			border-radius: 0.5rem;
 			transition: background 0.15s;
-			margin-bottom: 4px;
+			margin-bottom: 0.25rem;
 		`;
 
 		item.innerHTML = `
-			<div style="color: white; font-size: 14px; font-weight: 600; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+			<div style="color: white; font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
 				${escapeHtml(cred.title)}
 			</div>
-			<div style="color: #d4d4d8; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+			<div style="color: #d4d4d8; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
 				${escapeHtml(cred.username)}
 			</div>
 		`;
@@ -640,12 +640,18 @@ export class CredentialPicker {
 		const spaceBelow = window.innerHeight - rect.bottom;
 		const spaceAbove = rect.top;
 
+		const fontSize =
+			parseFloat(window.getComputedStyle(document.documentElement).fontSize) ||
+			16;
+		const maxHeightRem = 26.25;
+		const maxHeightPx = maxHeightRem * fontSize;
+
 		if (spaceBelow < 250 && spaceAbove > spaceBelow) {
 			this.initialSide = 'top';
 			this.initialMaxHeight = spaceAbove - 10;
 		} else {
 			this.initialSide = 'bottom';
-			this.initialMaxHeight = Math.min(420, spaceBelow - 10);
+			this.initialMaxHeight = Math.min(maxHeightPx, spaceBelow - 10);
 		}
 	}
 
@@ -711,7 +717,7 @@ export class CredentialPicker {
 		picker.style.setProperty('left', `${rect.left}px`, 'important');
 		picker.style.setProperty('width', `${rect.width}px`, 'important');
 
-		if (rect.width < 325) {
+		if (rect.width < 350) {
 			picker.setAttribute('data-vaulton-narrow', 'true');
 		} else {
 			picker.removeAttribute('data-vaulton-narrow');

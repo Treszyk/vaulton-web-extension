@@ -19,16 +19,16 @@ export class SavePrompt {
 		prompt.className = 'vaulton-save-prompt';
 		prompt.style.cssText = `
 			position: fixed !important;
-			top: 20px !important;
-			right: 20px !important;
+			top: 1.25rem !important;
+			right: 1.25rem !important;
 			background: #18181b !important;
-			border: 1px solid #27272a !important;
-			border-radius: 12px !important;
-			padding: 16px !important;
-			min-width: 320px !important;
-			max-width: 400px !important;
+			border: 0.0625rem solid #27272a !important;
+			border-radius: 0.75rem !important;
+			padding: 1rem !important;
+			min-width: 20rem !important;
+			max-width: 25rem !important;
 			z-index: 999999 !important;
-			box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+			box-shadow: 0 0.625rem 2.5rem rgba(0, 0, 0, 0.5) !important;
 			font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
 			animation: vaultonSlideIn 0.3s ease-out !important;
 			color: white !important;
@@ -41,31 +41,31 @@ export class SavePrompt {
 				: `Update password for <strong>${escapeHtml(username)}</strong> on <strong>${escapeHtml(domain)}</strong>?`;
 
 		prompt.innerHTML = `
-			<div style="margin-bottom: 12px;">
-				<div style="font-size: 15px; font-weight: 600; margin-bottom: 4px; color: white;">${title}</div>
-				<div style="font-size: 13px; color: #a1a1aa;">${message}</div>
+			<div style="margin-bottom: 0.75rem;">
+				<div style="font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem; color: white;">${title}</div>
+				<div style="font-size: 0.875rem; color: #a1a1aa;">${message}</div>
 			</div>
-			<div style="display: flex; gap: 8px; flex-direction: column;">
+			<div style="display: flex; gap: 0.5rem; flex-direction: column;">
 				<button class="vaulton-save-btn" style="
 					background: #9333ea;
 					color: white;
 					border: none;
-					border-radius: 6px;
-					padding: 8px 16px;
-					font-size: 13px;
+					border-radius: 0.375rem;
+					padding: 0.5rem 1rem;
+					font-size: 0.875rem;
 					font-weight: 500;
 					cursor: pointer;
 					transition: background 0.2s;
 				">${action === 'save' ? 'Save' : 'Update'}</button>
-				<div style="display: flex; gap: 8px;">
+				<div style="display: flex; gap: 0.5rem;">
 					<button class="vaulton-not-now-btn" style="
 						flex: 1;
 						background: #27272a;
 						color: #e4e4e7;
-						border: 1px solid #3f3f46;
-						border-radius: 6px;
-						padding: 6px 12px;
-						font-size: 12px;
+						border: 0.0625rem solid #3f3f46;
+						border-radius: 0.375rem;
+						padding: 0.375rem 0.75rem;
+						font-size: 0.875rem;
 						font-weight: 500;
 						cursor: pointer;
 						transition: all 0.2s;
@@ -74,10 +74,10 @@ export class SavePrompt {
 						flex: 1;
 						background: #7f1d1d;
 						color: #ffffff;
-						border: 1px solid #991b1b;
-						border-radius: 6px;
-						padding: 6px 12px;
-						font-size: 12px;
+						border: 0.0625rem solid #991b1b;
+						border-radius: 0.375rem;
+						padding: 0.375rem 0.75rem;
+						font-size: 0.875rem;
 						font-weight: 500;
 						cursor: pointer;
 						transition: all 0.2s;
