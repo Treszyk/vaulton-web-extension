@@ -34,11 +34,26 @@ export class AutofillEngine {
 	}
 
 	public fillInput(input: HTMLInputElement, value: string): void {
+		const readonlyAttr = input.getAttribute('readonly');
+		const disabledAttr = input.getAttribute('disabled');
+
+		const computedStyle = window.getComputedStyle(input);
+		const isHidden =
+			input.offsetParent === null ||
+			computedStyle.display === 'none' ||
+			computedStyle.visibility === 'hidden' ||
+			computedStyle.opacity === '0' ||
+			computedStyle.pointerEvents === 'none';
+
+		if (isHidden) {
+			return;
+		}
+
 		if (
 			input.readOnly ||
 			input.disabled ||
-			input.getAttribute('readonly') !== null ||
-			input.getAttribute('disabled') !== null ||
+			readonlyAttr !== null ||
+			disabledAttr !== null ||
 			input.matches(':read-only') ||
 			input.matches(':disabled')
 		) {
