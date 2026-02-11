@@ -393,7 +393,7 @@ export class FormDetector {
 		if (type === 'email') score += 20;
 
 		const positiveRegex =
-			/^(user|login|email|account|id|u|phone|mobile|identifier|identity)$|.*(user|login|email|account|identifier|identity|auth).*/;
+			/^(user|login|email|account|id|u|phone|mobile|identifier|identity|nick|nickname)$|.*(user|login|email|account|identifier|identity|auth|nick|nickname).*/;
 		if (positiveRegex.test(name)) score += 15;
 		if (positiveRegex.test(id)) score += 15;
 		if (positiveRegex.test(placeholder)) score += 10;

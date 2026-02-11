@@ -388,7 +388,7 @@ export class CredentialPicker {
 				border-color: #8b5cf6;
 			}
 			.vaulton-btn-reveal {
-				min-width: 5rem;
+				width: 8rem;
 			}
 			.vaulton-credential-picker[data-vaulton-narrow="true"] .vaulton-header {
 				flex-direction: column;
