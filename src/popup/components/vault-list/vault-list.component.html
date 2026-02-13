@@ -108,6 +108,7 @@
 		<app-record-editor
 			*ngIf="isEditorOpen()"
 			[record]="selectedRecord() || undefined"
+			[loading]="isLoading()"
 			(save)="onSaveRecord($event)"
 			(close)="onCloseEditor()">
 		</app-record-editor>

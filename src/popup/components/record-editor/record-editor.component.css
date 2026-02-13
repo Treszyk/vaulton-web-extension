@@ -241,13 +241,14 @@ textarea:focus {
 	opacity: 1;
 }
 
-.spinner {
-	width: 1.25rem;
-	height: 1.25rem;
-	border: 2px solid rgba(255, 255, 255, 0.2);
-	border-top-color: white;
+.loader {
+	width: 20px;
+	height: 20px;
+	border: 2px solid rgba(255, 255, 255, 0.3);
+	border-top-color: #fff;
 	border-radius: 50%;
-	animation: spin 0.6s linear infinite;
+	animation: spin 0.8s linear infinite;
+	margin: 0 auto;
 }
 
 @keyframes spin {

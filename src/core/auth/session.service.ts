@@ -12,6 +12,7 @@ export class SessionService {
 	readonly isAuthenticated = signal(false);
 	readonly accountId = signal<string | null>(null);
 	readonly isLocked = signal(true);
+	readonly isOffline = signal(false);
 	readonly lockoutStrategy = signal<string>('OnQuit');
 	readonly excludedSites = signal<string[]>([]);
 
@@ -65,10 +66,18 @@ export class SessionService {
 				type: 'VERIFY_SESSION',
 				payload: { throttleMs },
 			});
+
 			if (!res.success) throw new Error(res.error);
+
+			const status = res.data?.status;
+			if (status === 'unauthorized') {
+				await this.logout();
+				throw new Error('Session unauthorized');
+			}
+
+			this.isOffline.set(status === 'offline');
 		} catch (e) {
-			await this.logout();
-			throw e;
+			console.error('[SessionService] Verification failed:', e);
 		}
 	}
 

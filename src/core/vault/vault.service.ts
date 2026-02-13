@@ -67,7 +67,8 @@ export class VaultService {
 	async syncVault(force = false) {
 		this.isLoading.set(true);
 		try {
-			await sendCommand({ type: 'SYNC_VAULT', payload: { force } });
+			const res = await sendCommand({ type: 'SYNC_VAULT', payload: { force } });
+			if (!res.success) throw new Error(res.error || 'Sync failed');
 			await this.syncStateFromStorage();
 		} finally {
 			this.isLoading.set(false);

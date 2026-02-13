@@ -36,31 +36,33 @@ export class BackgroundAuthManager {
 			}
 		}
 
-		try {
-			const result = await this.trySyncVault();
-			if (result) {
-				await StorageCore.set(StorageCore.KEYS.LAST_SYNC_TIME, Date.now());
-			}
-			return result;
-		} catch (e) {
-			console.error('[Background] Sync failed:', e);
-			return false;
+		const result = await this.trySyncVault();
+		if (result) {
+			await StorageCore.set(StorageCore.KEYS.LAST_SYNC_TIME, Date.now());
 		}
+		return result;
 	}
 
-	async verifySession(throttleMs = 300000): Promise<boolean> {
+	async verifySession(
+		throttleMs = 300000,
+	): Promise<{ status: 'success' | 'unauthorized' | 'offline' }> {
 		const lastVerify = await StorageCore.get(StorageCore.KEYS.LAST_VERIFY_TIME);
 		if (lastVerify && Date.now() - lastVerify < throttleMs) {
-			return true;
+			return { status: 'success' };
 		}
 
 		try {
 			await apiAuthMe();
 			await StorageCore.set(StorageCore.KEYS.LAST_VERIFY_TIME, Date.now());
-			return true;
-		} catch (e) {
-			console.warn('[Background] Session verification failed:', e);
-			return false;
+			return { status: 'success' };
+		} catch (e: any) {
+			const status = e.status;
+			if (status === 401 || status === 403) {
+				console.warn('[Background] Session unauthorized:', status);
+				return { status: 'unauthorized' };
+			}
+			console.warn('[Background] Session verification failed (offline?):', e);
+			return { status: 'offline' };
 		}
 	}
 
@@ -81,7 +83,7 @@ export class BackgroundAuthManager {
 		const keys = StorageCore.KEYS;
 		const storageData = await StorageCore.getMultiple([keys.VAULT_KEY]);
 
-		if (!storageData[keys.VAULT_KEY]) return false;
+		if (!storageData[keys.VAULT_KEY]) throw new Error('Vault key missing');
 
 		const accountId = await this.getAccountId();
 		const encryptedEntries = await apiListEntries();
@@ -138,25 +140,15 @@ export class BackgroundAuthManager {
 	}
 
 	async completeLogin(vaultKeyB64: string): Promise<boolean> {
-		try {
-			await StorageCore.setMultiple({
-				[StorageCore.KEYS.VAULT_KEY]: vaultKeyB64,
-			});
-			return true;
-		} catch (e) {
-			console.error('[Background] Complete Login error:', e);
-			return false;
-		}
+		await StorageCore.setMultiple({
+			[StorageCore.KEYS.VAULT_KEY]: vaultKeyB64,
+		});
+		return true;
 	}
 
 	async refreshTokens(): Promise<boolean> {
-		try {
-			await apiAuthMe();
-			return true;
-		} catch (error) {
-			console.warn('[BackgroundAuthManager] Proactive refresh failed:', error);
-			return false;
-		}
+		await apiAuthMe();
+		return true;
 	}
 
 	async logout(): Promise<void> {

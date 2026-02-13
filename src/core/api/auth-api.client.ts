@@ -33,19 +33,24 @@ function normalizeEnc(val: any) {
 
 async function handleResponse<T>(res: Response): Promise<T> {
 	if (!res.ok) {
-		const text = await res.text();
-		throw new Error(text || `API Error: ${res.status}`);
+		const text = (await res.text()).trim();
+		let errorMsg = text || `API Error: ${res.status}`;
+
+		try {
+			const json = JSON.parse(text);
+			errorMsg =
+				json.MESSAGE || json.message || json.Error || json.error || errorMsg;
+			if (typeof errorMsg !== 'string' && errorMsg) {
+				errorMsg = JSON.stringify(errorMsg);
+			}
+		} catch {
+			// Not JSON
+		}
+
+		throw new Error(errorMsg);
 	}
 	const json = await res.json();
 	return json as T;
-}
-
-export async function apiPreRegister(): Promise<any> {
-	const res = await fetch(`${API_BASE_URL}/auth/pre-register`, {
-		method: 'POST',
-	});
-	if (!res.ok) throw new Error(`Pre-register failed: ${res.status}`);
-	return res.json();
 }
 
 export async function apiPreLogin(
@@ -102,11 +107,12 @@ export async function apiRefresh(
 }
 
 export async function apiLogout(refreshToken: string): Promise<void> {
-	await fetch(`${API_BASE_URL}/auth/ext/logout`, {
+	const res = await fetch(`${API_BASE_URL}/auth/ext/logout`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ RefreshToken: refreshToken }),
 	});
+	await handleResponse<void>(res);
 }
 
 export async function apiLogoutAll(): Promise<void> {

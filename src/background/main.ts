@@ -4,7 +4,6 @@ import { THROTTLES } from '../core/config/throttles';
 import { browserApi } from '../core/storage/storage-core';
 import { BackgroundAction, BackgroundResponse } from '../core/messaging';
 import { loadVault } from '../core/vault/vault-storage';
-import { apiPreRegister } from '../core/api/auth-api.client';
 import { getBaseDomain } from '../core/utils/domain';
 import { StorageCore } from '../core/storage/storage-core';
 
@@ -104,8 +103,6 @@ async function handleAction(action: BackgroundAction): Promise<any> {
 			return auth.verifySession(action.payload.throttleMs);
 		case 'CLEAR_SESSION':
 			return auth.clearSession();
-		case 'PRE_REGISTER':
-			return preRegister();
 		case 'RESET_TIMER':
 			return Promise.resolve();
 		case 'GET_CREDENTIALS':
@@ -152,8 +149,10 @@ async function getCredentialsForDomain(
 			return { credentials: [], locked: true };
 		}
 
-		const isValid = await auth.verifySession(THROTTLES.SESSION_SECURITY_CHECK);
-		if (!isValid) {
+		const verification = await auth.verifySession(
+			THROTTLES.SESSION_SECURITY_CHECK,
+		);
+		if (verification.status === 'unauthorized') {
 			return { credentials: [], locked: true };
 		}
 
@@ -243,8 +242,4 @@ async function saveCredential(
 		console.error('[Background] Save credential error:', e);
 		throw e;
 	}
-}
-
-async function preRegister(): Promise<any> {
-	return apiPreRegister();
 }

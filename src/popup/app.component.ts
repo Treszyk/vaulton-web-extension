@@ -4,6 +4,7 @@ import {
 	inject,
 	OnInit,
 	HostListener,
+	signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SessionService } from '../core/auth/session.service';
@@ -11,19 +12,28 @@ import { THROTTLES } from '../core/config/throttles';
 import { VaultService } from '../core/vault/vault.service';
 import { LoginComponent } from './components/login/login.component';
 import { MainLayoutComponent } from './components/main-layout/main-layout.component';
+import { NotificationService } from '../core/ui/notification.service';
+import { ConfirmModalComponent } from './components/confirm-modal/confirm-modal.component';
 
 @Component({
 	selector: 'app-root',
 	standalone: true,
-	imports: [CommonModule, LoginComponent, MainLayoutComponent],
+	imports: [
+		CommonModule,
+		LoginComponent,
+		MainLayoutComponent,
+		ConfirmModalComponent,
+	],
 	templateUrl: './app.component.html',
 	styleUrls: ['./app.component.css'],
 })
 export class AppComponent implements OnInit {
 	loading = false;
-	error = '';
 	auth = inject(SessionService);
 	vault = inject(VaultService);
+	notifications = inject(NotificationService);
+
+	showWipeConfirm = signal(false);
 
 	private lastResetTime = 0;
 
@@ -59,12 +69,12 @@ export class AppComponent implements OnInit {
 
 	async onLogin(creds: { email: string; password: string }) {
 		this.loading = true;
-		this.error = '';
 		try {
 			await this.auth.login(creds.email, creds.password);
 			await this.vault.syncVault(true);
+			this.notifications.success('Vault Unlocked');
 		} catch (e: any) {
-			this.error = e.message || 'Vault Unlock Failed';
+			this.notifications.error(e.message || 'Vault Unlock Failed');
 		} finally {
 			this.loading = false;
 			this.cdr.detectChanges();
@@ -72,12 +82,12 @@ export class AppComponent implements OnInit {
 	}
 
 	async onLogout() {
-		this.error = '';
 		try {
 			await this.auth.logout();
 			await this.vault.clearData();
+			this.notifications.info('Session Terminated');
 		} catch (e: any) {
-			this.error = 'Logout sequence interrupted';
+			this.notifications.error('Logout sequence interrupted');
 		} finally {
 			this.cdr.detectChanges();
 		}
@@ -85,11 +95,11 @@ export class AppComponent implements OnInit {
 
 	async onRefresh() {
 		this.loading = true;
-		this.error = '';
 		try {
 			await this.vault.syncVault(true);
+			this.notifications.success('Vault Synchronized');
 		} catch (e: any) {
-			this.error = 'Vault sync failed';
+			this.notifications.error('Vault sync failed');
 		} finally {
 			this.loading = false;
 			this.cdr.detectChanges();
@@ -99,28 +109,25 @@ export class AppComponent implements OnInit {
 	async onCheckStatus() {
 		try {
 			await this.auth.checkVaultStatus();
-			this.error = this.auth.isLocked()
+			const msg = this.auth.isLocked()
 				? 'Vault is Locked'
-				: 'Vault is Unlocked & Active';
-			setTimeout(() => {
-				if (this.error.includes('Vault is Unlocked')) this.error = '';
-			}, 3000);
+				: 'Vault is Unlocked';
+			this.notifications.info(msg);
 		} catch (e: any) {
-			this.error = 'Status check failed';
+			this.notifications.error('Status check failed');
 		} finally {
 			this.cdr.detectChanges();
 		}
 	}
 
 	async onWipeData() {
-		if (
-			confirm(
-				'CRITICAL: This will destroy ALL local vault keys and session data. Are you absolutely sure?',
-			)
-		) {
-			(globalThis as any).chrome?.storage?.local?.clear();
-			(globalThis as any).chrome?.storage?.session?.clear();
-			location.reload();
-		}
+		this.showWipeConfirm.set(true);
+	}
+
+	async executeWipe() {
+		this.showWipeConfirm.set(false);
+		(globalThis as any).chrome?.storage?.local?.clear();
+		(globalThis as any).chrome?.storage?.session?.clear();
+		location.reload();
 	}
 }

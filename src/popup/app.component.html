@@ -10,7 +10,14 @@
 	<div class="content-wrapper">
 		<header class="auth-header">
 			<div class="logo-container">
-				<h1 class="logo">Vaulton<span class="dot">.</span></h1>
+				<div class="logo-wrap">
+					<h1 class="logo">Vaulton<span class="dot">.</span></h1>
+					<span
+						class="offline-badge"
+						*ngIf="auth.isOffline()"
+						>Offline</span
+					>
+				</div>
 				<p class="tagline">Zero-Knowledge Privacy</p>
 			</div>
 			<button
@@ -42,13 +49,63 @@
 
 			<app-main-layout *ngIf="auth.isAuthenticated()"> </app-main-layout>
 		</main>
-
-		<footer *ngIf="!auth.isAuthenticated()">
-			<div
-				class="error-toast animate-shake"
-				*ngIf="error">
-				{{ error }}
-			</div>
-		</footer>
 	</div>
+
+	<div
+		class="toast-overlay"
+		*ngIf="!auth.isAuthenticated()">
+		<div
+			*ngFor="let n of notifications.notifications()"
+			class="toast-item"
+			[class]="n.type"
+			[class.closing]="n.isClosing"
+			(click)="notifications.remove(n.id)">
+			<div class="toast-icon">
+				<svg
+					*ngIf="n.type === 'success'"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M5 13l4 4L19 7" />
+				</svg>
+				<svg
+					*ngIf="n.type === 'error'"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M6 18L18 6M6 6l12 12" />
+				</svg>
+				<svg
+					*ngIf="n.type === 'info' || n.type === 'warning'"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+				</svg>
+			</div>
+			<div class="toast-content">{{ n.message }}</div>
+		</div>
+	</div>
+
+	<app-confirm-modal
+		*ngIf="showWipeConfirm()"
+		title="Wipe Local Data"
+		message="CRITICAL: This will destroy ALL local vault keys and session data. Are you absolutely sure?"
+		confirmLabel="Wipe Everything"
+		[isDanger]="true"
+		(confirm)="executeWipe()"
+		(cancel)="showWipeConfirm.set(false)">
+	</app-confirm-modal>
 </div>

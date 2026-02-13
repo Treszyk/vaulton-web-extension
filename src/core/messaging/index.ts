@@ -18,7 +18,6 @@ export type BackgroundAction =
 	| { type: 'REFRESH' }
 	| { type: 'SYNC_VAULT'; payload: { force?: boolean } }
 	| { type: 'CLEAR_SESSION' }
-	| { type: 'PRE_REGISTER' }
 	| { type: 'RESET_TIMER' }
 	| { type: 'GET_CREDENTIALS'; payload: { domain: string } }
 	| {

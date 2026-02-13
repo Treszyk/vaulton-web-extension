@@ -23,6 +23,7 @@ import { generateSecurePassword } from '../../../core/crypto/password-utils';
 })
 export class RecordEditorComponent {
 	@Input() record?: VaultRecord;
+	@Input() loading = false;
 	@Output() save = new EventEmitter<VaultRecordInput>();
 	@Output() close = new EventEmitter<void>();
 
@@ -35,7 +36,6 @@ export class RecordEditorComponent {
 	};
 
 	showPwd = signal(false);
-	isSubmitting = signal(false);
 	isClosing = signal(false);
 
 	constructor() {
@@ -80,12 +80,7 @@ export class RecordEditorComponent {
 
 	async submit(event: Event) {
 		event.preventDefault();
-		if (!this.isValid()) return;
-		this.isSubmitting.set(true);
-		try {
-			this.save.emit({ ...this.form });
-		} finally {
-			this.isSubmitting.set(false);
-		}
+		if (!this.isValid() || this.loading) return;
+		this.save.emit({ ...this.form });
 	}
 }

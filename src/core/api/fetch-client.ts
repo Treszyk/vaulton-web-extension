@@ -86,8 +86,23 @@ export async function fetchClient<T>(
 	}
 
 	if (!response.ok) {
-		const text = await response.text();
-		throw new Error(text || `API Error: ${response.status}`);
+		const text = (await response.text()).trim();
+		let errorMsg = text || `API Error: ${response.status}`;
+
+		try {
+			const json = JSON.parse(text);
+			errorMsg =
+				json.MESSAGE || json.message || json.Error || json.error || errorMsg;
+			if (typeof errorMsg !== 'string' && errorMsg) {
+				errorMsg = JSON.stringify(errorMsg);
+			}
+		} catch {
+			// Not valid JSON or parsing failed
+		}
+
+		const error = new Error(errorMsg);
+		(error as any).status = response.status;
+		throw error;
 	}
 
 	if (response.status === 204) {

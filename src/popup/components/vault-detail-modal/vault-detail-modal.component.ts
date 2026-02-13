@@ -11,6 +11,7 @@ import { inject } from '@angular/core';
 import { SessionService } from '../../../core/auth/session.service';
 import { THROTTLES } from '../../../core/config/throttles';
 import type { VaultRecord } from '../../../core/vault/vault-record.model';
+import { NotificationService } from '../../../core/ui/notification.service';
 
 @Component({
 	selector: 'app-vault-detail-modal',
@@ -24,7 +25,9 @@ export class VaultDetailModalComponent implements OnDestroy {
 	@Output() closed = new EventEmitter<void>();
 	@Output() onEdit = new EventEmitter<VaultRecord>();
 	@Output() onDelete = new EventEmitter<string>();
+
 	private session = inject(SessionService);
+	private notifications = inject(NotificationService);
 
 	reveal = signal(false);
 	copyConfirmActive = signal(false);
@@ -71,7 +74,7 @@ export class VaultDetailModalComponent implements OnDestroy {
 			this.reveal.set(true);
 			this.revealTimeout = setTimeout(() => this.reveal.set(false), 8000);
 		} catch (e) {
-			console.error('Session verification failed before reveal', e);
+			this.notifications.error('Security check failed');
 		}
 	}
 
@@ -122,7 +125,7 @@ export class VaultDetailModalComponent implements OnDestroy {
 			this.copyConfirmActive.set(false);
 			this.showFeedback('password');
 		} catch (e) {
-			console.error('Session verification failed before copy', e);
+			this.notifications.error('Security check failed');
 		}
 	}
 

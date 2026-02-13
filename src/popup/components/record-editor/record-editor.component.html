@@ -126,12 +126,12 @@
 			<div class="form-actions">
 				<button
 					type="submit"
-					[disabled]="isSubmitting() || !isValid()"
+					[disabled]="loading || !isValid()"
 					class="btn-primary">
 					<div
-						*ngIf="isSubmitting()"
-						class="spinner"></div>
-					<span *ngIf="!isSubmitting()">
+						*ngIf="loading"
+						class="loader"></div>
+					<span *ngIf="!loading">
 						{{ record ? 'Update' : 'Save Secret' }}
 					</span>
 				</button>

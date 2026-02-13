@@ -7,6 +7,7 @@ import {
 } from '../../../core/vault/vault-record.model';
 import { VaultDetailModalComponent } from '../vault-detail-modal/vault-detail-modal.component';
 import { RecordEditorComponent } from '../record-editor/record-editor.component';
+import { NotificationService } from '../../../core/ui/notification.service';
 
 @Component({
 	selector: 'app-vault-list',
@@ -17,6 +18,7 @@ import { RecordEditorComponent } from '../record-editor/record-editor.component'
 })
 export class VaultListComponent {
 	private vaultService = inject(VaultService);
+	private notifications = inject(NotificationService);
 	isLoading = this.vaultService.isLoading;
 
 	searchQuery = signal('');
@@ -64,21 +66,26 @@ export class VaultListComponent {
 			const record = this.selectedRecord();
 			if (record) {
 				await this.vaultService.updateRecord(record.id, input);
+				this.notifications.success('Record updated');
 			} else {
 				await this.vaultService.addRecord(input);
+				this.notifications.success('New record saved');
 			}
 			this.onCloseEditor();
 		} catch (e) {
-			alert('Failed to save record');
+			this.notifications.error('Failed to save record');
+			this.onCloseEditor();
 		}
 	}
 
 	async onDeleteRecord(id: string) {
 		try {
 			await this.vaultService.deleteRecord(id);
+			this.notifications.success('Record deleted');
 			this.onCloseModal();
 		} catch (e) {
-			alert('Failed to delete record');
+			this.notifications.error('Failed to delete record');
+			this.onCloseModal();
 		}
 	}
 

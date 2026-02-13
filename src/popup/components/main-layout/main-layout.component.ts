@@ -1,10 +1,11 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { VaultListComponent } from '../vault-list/vault-list.component';
 import { SecurityComponent } from '../security/security.component';
 import { AccountComponent } from '../account/account.component';
 import { OnboardingModalComponent } from '../onboarding-modal/onboarding-modal.component';
 import { StorageCore } from '../../../core/storage/storage-core';
+import { NotificationService } from '../../../core/ui/notification.service';
 
 type Tab = 'vault' | 'security' | 'account';
 
@@ -25,6 +26,52 @@ type Tab = 'vault' | 'security' | 'account';
 				<app-security *ngIf="activeTab() === 'security'"></app-security>
 				<app-account *ngIf="activeTab() === 'account'"></app-account>
 			</main>
+
+			<div class="toast-overlay">
+				<div
+					*ngFor="let n of notifications.notifications()"
+					class="toast-item"
+					[class]="n.type"
+					[class.closing]="n.isClosing"
+					(click)="notifications.remove(n.id)">
+					<div class="toast-icon">
+						<svg
+							*ngIf="n.type === 'success'"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 13l4 4L19 7" />
+						</svg>
+						<svg
+							*ngIf="n.type === 'error'"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M6 18L18 6M6 6l12 12" />
+						</svg>
+						<svg
+							*ngIf="n.type === 'info' || n.type === 'warning'"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+					</div>
+					<div class="toast-content">{{ n.message }}</div>
+				</div>
+			</div>
 
 			<nav class="bottom-nav tab-switcher">
 				<button
@@ -152,14 +199,14 @@ type Tab = 'vault' | 'security' | 'account';
 				background: #09090b;
 				border-top: 1px solid rgba(255, 255, 255, 0.1);
 				padding: 0;
-				z-index: 1000;
+				z-index: 100;
 			}
 
 			.tab-switcher {
 				display: flex;
 				padding: 12px 16px;
 				position: relative;
-				z-index: 20;
+				z-index: 100;
 				margin: 0;
 				width: 100%;
 				box-sizing: border-box;
@@ -272,10 +319,120 @@ type Tab = 'vault' | 'security' | 'account';
 			.spinning svg {
 				animation: spin 1s linear infinite;
 			}
+
+			.toast-overlay {
+				z-index: 50;
+				display: flex;
+				flex-direction: column-reverse;
+				pointer-events: none;
+				width: 100%;
+				background: transparent;
+			}
+
+			.toast-item {
+				pointer-events: auto;
+				border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+				padding: 10px 20px;
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				cursor: pointer;
+				width: 100%;
+				box-sizing: border-box;
+				overflow: hidden;
+				animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+			}
+
+			.toast-item.closing {
+				animation: toastSlideOut 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+			}
+
+			@keyframes toastSlideIn {
+				from {
+					max-height: 0;
+					opacity: 0;
+					transform: translateY(10px);
+					padding-top: 0;
+					padding-bottom: 0;
+					border-top-width: 0;
+				}
+				to {
+					max-height: 60px;
+					opacity: 1;
+					transform: translateY(0);
+					padding-top: 10px;
+					padding-bottom: 10px;
+					border-top-width: 2px;
+				}
+			}
+
+			@keyframes toastSlideOut {
+				from {
+					max-height: 60px;
+					opacity: 1;
+					transform: translateY(0);
+					padding-top: 10px;
+					padding-bottom: 10px;
+					border-top-width: 2px;
+				}
+				to {
+					max-height: 0;
+					opacity: 0;
+					transform: translateY(10px);
+					padding-top: 0;
+					padding-bottom: 0;
+					border-top-width: 0;
+				}
+			}
+
+			.toast-icon {
+				width: 14px;
+				height: 14px;
+				flex-shrink: 0;
+			}
+
+			.toast-icon svg {
+				width: 100%;
+				height: 100%;
+			}
+
+			.toast-content {
+				font-size: 10px;
+				font-weight: 800;
+				color: #fff;
+				letter-spacing: 0.05em;
+				text-transform: uppercase;
+			}
+
+			.toast-item.success {
+				border-top: 2px solid #22c55e;
+			}
+			.toast-item.success .toast-icon {
+				color: #22c55e;
+			}
+			.toast-item.error {
+				border-top: 2px solid #ef4444;
+			}
+			.toast-item.error .toast-icon {
+				color: #ef4444;
+			}
+			.toast-item.info {
+				border-top: 2px solid #7c3aed;
+			}
+			.toast-item.info .toast-icon {
+				color: #a78bfa;
+			}
+			.toast-item.warning {
+				border-top: 2px solid #fbbf24;
+			}
+			.toast-item.warning .toast-icon {
+				color: #fbbf24;
+			}
 		`,
 	],
 })
 export class MainLayoutComponent {
+	notifications = inject(NotificationService);
 	activeTab = signal<Tab>('vault');
 	showOnboarding = signal(false);
 
