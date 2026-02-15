@@ -13,9 +13,9 @@ The extension is designed for modern browser security standards (Manifest V3) an
 
 ### Building
 
-The extension must be built before it can be loaded into your browser:
+The extension must be built before it can be loaded into your browser. The build script is cross-platform and works on both Linux and Windows:
 
-1.  Run `npm run build` - This generates the `dist/` folder.
+1.  Run `npm run build` - This generates the `dist/` folder using `shx`.
 
 ### Loading into Chrome / Edge
 
@@ -29,7 +29,7 @@ The extension must be built before it can be loaded into your browser:
 ### Key Structure
 
 - **`src/background/main.ts`**: The Background Service Worker.
-- **`src/popup/`**: The Angular 17 popup application.
+- **`src/popup/`**: The Angular 21.1 popup application.
 - **`src/config.ts`**: Controls the `API_BASE_URL`.
 - **`vite.config.ts`**: Unified build configuration for the background and popup.
 
@@ -37,3 +37,9 @@ The extension must be built before it can be loaded into your browser:
 
 - **No Data in Popup:** Right-click the extension icon, select "Inspect Popup", and check the Console.
 - **Service Worker Errors:** In `chrome://extensions`, click the "Service Worker" link next to "Inspect views" to view the background logs.
+
+## License
+
+This project is licensed under the MIT License.
+
+It uses third-party dependencies via npm and NuGet under their respective licenses.
