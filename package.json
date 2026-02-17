@@ -34,5 +34,9 @@
     "shx": "0.4.0",
     "typescript": "5.9.3",
     "vite": "6.4.1"
+  },
+  "overrides": {
+    "ajv": "8.18.0",
+    "@angular/build": "21.1.4"
   }
 }

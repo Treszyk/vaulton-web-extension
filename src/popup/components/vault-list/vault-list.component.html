@@ -1,142 +1,120 @@
 <div class="list-container">
-	<div class="search-bar">
-		<div class="search-wrapper">
-			<svg
-				class="search-icon"
-				xmlns="http://www.w3.org/2000/svg"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor">
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-			</svg>
-			<input
-				type="text"
-				placeholder="Search vault..."
-				(input)="onSearch($event)"
-				[value]="searchQuery()" />
-		</div>
-	</div>
+  <div class="search-bar">
+    <div class="search-wrapper">
+      <svg
+        class="search-icon"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+        />
+      </svg>
+      <input
+        type="text"
+        placeholder="Search vault..."
+        (input)="onSearch($event)"
+        [value]="searchQuery()"
+      />
+    </div>
+  </div>
 
-	<div
-		class="loading-state"
-		*ngIf="isLoading()">
-		<div class="spinner"></div>
-	</div>
+  <div class="loading-state" *ngIf="isLoading()">
+    <div class="spinner"></div>
+  </div>
 
-	<div
-		class="records-list"
-		*ngIf="!isLoading() && (filteredRecords().length > 0 || !searchQuery())">
-		<div
-			class="record-item ghost-card"
-			*ngIf="!searchQuery()"
-			(click)="onAddNew()">
-			<div class="ghost-icon-container">
-				<div class="ghost-icon-circle">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2.5"
-							d="M12 4v16m8-8H4" />
-					</svg>
-				</div>
-			</div>
-			<div class="record-info">
-				<div class="ghost-title">Add New Entry</div>
-				<div class="record-meta">
-					<span class="ghost-subtitle">Create a new secure record</span>
-				</div>
-			</div>
-		</div>
+  <div
+    class="records-list"
+    *ngIf="!isLoading() && (filteredRecords().length > 0 || !searchQuery())"
+  >
+    <div
+      class="record-item ghost-card"
+      *ngIf="!searchQuery()"
+      (click)="onAddNew()"
+    >
+      <div class="ghost-icon-container">
+        <div class="ghost-icon-circle">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.5"
+              d="M12 4v16m8-8H4"
+            />
+          </svg>
+        </div>
+      </div>
+      <div class="record-info">
+        <div class="ghost-title">Add New Entry</div>
+        <div class="record-meta">
+          <span class="ghost-subtitle">Create a new secure record</span>
+        </div>
+      </div>
+    </div>
 
-		<div
-			class="record-item"
-			*ngFor="let record of filteredRecords(); let i = index"
-			[style.--delay]="(i + 1) * 50 + 'ms'"
-			(click)="onOpenRecord(record)">
-			<div class="record-icon">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor">
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-				</svg>
-			</div>
-			<div class="record-info">
-				<div class="record-title">{{ record.title }}</div>
-				<div class="record-meta">
-					<span class="record-subtitle">{{ record.username }}</span>
-					<span
-						class="dot-separator"
-						*ngIf="record.username && record.website"
-						>·</span
-					>
-					<span
-						class="record-website"
-						*ngIf="record.website"
-						>{{ record.website }}</span
-					>
-				</div>
-			</div>
-		</div>
-	</div>
+    <div
+      class="record-item"
+      *ngFor="let record of filteredRecords(); let i = index"
+      [style.--delay]="(i + 1) * 50 + 'ms'"
+      (click)="onOpenRecord(record)"
+    >
+      <div class="record-icon">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+          />
+        </svg>
+      </div>
+      <div class="record-info">
+        <div class="record-title">{{ record.title }}</div>
+        <div class="record-meta">
+          <span class="record-subtitle">{{ record.username }}</span>
+          <span class="dot-separator" *ngIf="record.username && record.website"
+            >·</span
+          >
+          <span class="record-website" *ngIf="record.website">{{
+            record.website
+          }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
-	<div
-		class="modal-overlay"
-		*ngIf="isModalOpen() || isEditorOpen()">
-		<app-vault-detail-modal
-			*ngIf="isModalOpen() && selectedRecord()"
-			[record]="selectedRecord()!"
-			(onEdit)="onStartEdit($event)"
-			(onDelete)="onDeleteRecord($event)"
-			(closed)="onCloseModal()">
-		</app-vault-detail-modal>
+  <div class="modal-overlay" *ngIf="isModalOpen() || isEditorOpen()">
+    <app-vault-detail-modal
+      *ngIf="isModalOpen() && selectedRecord()"
+      [record]="selectedRecord()!"
+      (onEdit)="onStartEdit($event)"
+      (onDelete)="onDeleteRecord($event)"
+      (closed)="onCloseModal()"
+    >
+    </app-vault-detail-modal>
 
-		<app-record-editor
-			*ngIf="isEditorOpen()"
-			[record]="selectedRecord() || undefined"
-			[loading]="isLoading()"
-			(save)="onSaveRecord($event)"
-			(close)="onCloseEditor()">
-		</app-record-editor>
-	</div>
-
-	<div
-		class="empty-placeholder"
-		*ngIf="!isLoading() && filteredRecords().length === 0">
-		<div class="empty-content">
-			<svg
-				class="large-icon"
-				xmlns="http://www.w3.org/2000/svg"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor">
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-			</svg>
-			<p *ngIf="searchQuery(); else noRecords">
-				No matches found for
-				<span class="query-text">"{{ searchQuery() }}"</span>
-			</p>
-			<ng-template #noRecords>
-				<p>Your vault is empty.</p>
-			</ng-template>
-		</div>
-	</div>
+    <app-record-editor
+      *ngIf="isEditorOpen()"
+      [record]="selectedRecord() || undefined"
+      [loading]="isLoading()"
+      (save)="onSaveRecord($event)"
+      (close)="onCloseEditor()"
+    >
+    </app-record-editor>
+  </div>
 </div>
