@@ -1,21 +1,21 @@
-import { OverlayManager } from './overlay-manager';
+import { OverlayManager } from "./overlay-manager";
 
 export interface VaultonButton {
-	element: HTMLElement;
-	input: HTMLInputElement;
-	cleanup: () => void;
+  element: HTMLElement;
+  input: HTMLInputElement;
+  cleanup: () => void;
 }
 
 export class ButtonInjector {
-	private buttons: Map<HTMLInputElement, VaultonButton> = new Map();
+  private buttons: Map<HTMLInputElement, VaultonButton> = new Map();
 
-	private static getOverlayHost(): ShadowRoot {
-		const shadow = OverlayManager.getShadowRoot();
+  private static getOverlayHost(): ShadowRoot {
+    const shadow = OverlayManager.getShadowRoot();
 
-		if (!shadow.querySelector('.vaulton-autofill-btn-style')) {
-			const style = document.createElement('style');
-			style.className = 'vaulton-autofill-btn-style';
-			style.textContent = `
+    if (!shadow.querySelector(".vaulton-autofill-btn-style")) {
+      const style = document.createElement("style");
+      style.className = "vaulton-autofill-btn-style";
+      style.textContent = `
 				.vaulton-autofill-btn {
 					display: none;
 					position: fixed !important;
@@ -31,10 +31,13 @@ export class ButtonInjector {
 					pointer-events: auto !important;
 					box-sizing: border-box !important;
 					box-shadow: 0 0.0625rem 0.125rem rgba(0,0,0,0.1) !important;
+					-webkit-backface-visibility: hidden !important;
+					backface-visibility: hidden !important;
+					will-change: transform !important;
 				}
 				.vaulton-autofill-btn:hover {
 					border-color: #c084fc !important;
-					transform: scale(1.1) !important;
+					transform: scale(1.1) perspective(1px) !important;
 				}
 				.vaulton-autofill-btn img {
 					width: 100% !important;
@@ -42,256 +45,261 @@ export class ButtonInjector {
 					display: block !important;
 					object-fit: contain !important;
 					pointer-events: none !important;
+					image-rendering: -webkit-optimize-contrast !important;
 				}
 			`;
-			shadow.appendChild(style);
-		}
+      shadow.appendChild(style);
+    }
 
-		return shadow;
-	}
+    return shadow;
+  }
 
-	injectButton(
-		input: HTMLInputElement,
-		onClick: (target: HTMLInputElement) => void,
-	): VaultonButton | null {
-		if (input.readOnly || input.disabled) {
-			return null;
-		}
+  injectButton(
+    input: HTMLInputElement,
+    onClick: (target: HTMLInputElement) => void,
+  ): VaultonButton | null {
+    if (input.readOnly || input.disabled) {
+      return null;
+    }
 
-		if (this.buttons.has(input)) {
-			return this.buttons.get(input)!;
-		}
+    if (this.buttons.has(input)) {
+      return this.buttons.get(input)!;
+    }
 
-		const button = this.createButton(() => onClick(input));
-		const shadow = ButtonInjector.getOverlayHost();
-		shadow.appendChild(button);
+    const button = this.createButton(() => onClick(input));
+    const shadow = ButtonInjector.getOverlayHost();
+    shadow.appendChild(button);
 
-		const cleanup = this.positionButton(input, button);
+    const cleanup = this.positionButton(input, button);
 
-		const vaultonButton: VaultonButton = {
-			element: button,
-			input,
-			cleanup: () => {
-				cleanup();
-				this.buttons.delete(input);
-			},
-		};
+    const vaultonButton: VaultonButton = {
+      element: button,
+      input,
+      cleanup: () => {
+        cleanup();
+        this.buttons.delete(input);
+      },
+    };
 
-		this.buttons.set(input, vaultonButton);
-		return vaultonButton;
-	}
+    this.buttons.set(input, vaultonButton);
+    return vaultonButton;
+  }
 
-	removeButton(input: HTMLInputElement): void {
-		const vaultonButton = this.buttons.get(input);
-		if (vaultonButton) {
-			vaultonButton.cleanup();
-		}
-	}
+  removeButton(input: HTMLInputElement): void {
+    const vaultonButton = this.buttons.get(input);
+    if (vaultonButton) {
+      vaultonButton.cleanup();
+    }
+  }
 
-	removeAll(): void {
-		this.buttons.forEach((button) => button.cleanup());
-		this.buttons.clear();
-		OverlayManager.clear();
-	}
+  removeAll(): void {
+    this.buttons.forEach((button) => button.cleanup());
+    this.buttons.clear();
+    OverlayManager.clear();
+  }
 
-	private createButton(onClick: () => void): HTMLElement {
-		const button = document.createElement('div');
-		button.className = 'vaulton-autofill-btn';
-		const iconUrl = chrome.runtime.getURL('icons/icon.png');
-		button.innerHTML = `<img src="${iconUrl}" />`;
+  private createButton(onClick: () => void): HTMLElement {
+    const button = document.createElement("div");
+    button.className = "vaulton-autofill-btn";
+    const iconUrl = chrome.runtime.getURL("icons/icon.png");
+    button.innerHTML = `<img src="${iconUrl}" />`;
 
-		button.addEventListener('click', (e) => {
-			e.stopPropagation();
-			e.preventDefault();
-			onClick();
-		});
+    button.addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      onClick();
+    });
 
-		return button;
-	}
+    return button;
+  }
 
-	private isElementVisible(el: HTMLElement): boolean {
-		if (!el.isConnected) return false;
+  private isElementVisible(el: HTMLElement): boolean {
+    if (!el.isConnected) return false;
 
-		let current: HTMLElement | null = el;
-		while (current) {
-			const style = window.getComputedStyle(current);
-			if (
-				style.display === 'none' ||
-				style.visibility === 'hidden' ||
-				parseFloat(style.opacity) < 0.1
-			) {
-				return false;
-			}
-			current = current.parentElement;
-		}
+    let current: HTMLElement | null = el;
+    while (current) {
+      const style = window.getComputedStyle(current);
+      if (
+        style.display === "none" ||
+        style.visibility === "hidden" ||
+        parseFloat(style.opacity) < 0.1
+      ) {
+        return false;
+      }
+      current = current.parentElement;
+    }
 
-		if (el.offsetWidth === 0 || el.offsetHeight === 0) {
-			return false;
-		}
+    if (el.offsetWidth === 0 || el.offsetHeight === 0) {
+      return false;
+    }
 
-		return true;
-	}
+    return true;
+  }
 
-	private isObstructed(input: HTMLElement, button: HTMLElement): boolean {
-		const rect = input.getBoundingClientRect();
-		const x = rect.left + rect.width / 2;
-		const y = rect.top + rect.height / 2;
+  private isObstructed(input: HTMLElement, button: HTMLElement): boolean {
+    const rect = input.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
 
-		if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) {
-			return true;
-		}
+    if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) {
+      return true;
+    }
 
-		const elementAtPoint = document.elementFromPoint(x, y);
+    const elementAtPoint = document.elementFromPoint(x, y);
 
-		if (!elementAtPoint) return true;
+    if (!elementAtPoint) return true;
 
-		if (elementAtPoint === input || input.contains(elementAtPoint))
-			return false;
+    if (elementAtPoint === input || input.contains(elementAtPoint))
+      return false;
 
-		if (input instanceof HTMLInputElement && input.labels) {
-			for (let i = 0; i < input.labels.length; i++) {
-				if (
-					input.labels[i] === elementAtPoint ||
-					input.labels[i].contains(elementAtPoint)
-				) {
-					return false;
-				}
-			}
-		}
+    if (input instanceof HTMLInputElement && input.labels) {
+      for (let i = 0; i < input.labels.length; i++) {
+        if (
+          input.labels[i] === elementAtPoint ||
+          input.labels[i].contains(elementAtPoint)
+        ) {
+          return false;
+        }
+      }
+    }
 
-		if (elementAtPoint === button || button.contains(elementAtPoint))
-			return false;
+    if (elementAtPoint === button || button.contains(elementAtPoint))
+      return false;
 
-		return true;
-	}
+    return true;
+  }
 
-	private positionButton(
-		input: HTMLInputElement,
-		button: HTMLElement,
-	): () => void {
-		let lastAppliedPadding = 0;
-		let isVisibleInViewport = false;
-		let animationId: number | null = null;
+  private positionButton(
+    input: HTMLInputElement,
+    button: HTMLElement,
+  ): () => void {
+    let lastAppliedPadding = 0;
+    let isVisibleInViewport = false;
+    let animationId: number | null = null;
 
-		const initialStyle = window.getComputedStyle(input);
-		const originalPaddingRight = parseFloat(initialStyle.paddingRight) || 0;
+    const initialStyle = window.getComputedStyle(input);
+    const originalPaddingRight = parseFloat(initialStyle.paddingRight) || 0;
 
-		let hasRightIcon = originalPaddingRight > 20;
+    let hasRightIcon = originalPaddingRight > 20;
 
-		if (!hasRightIcon && input.isConnected) {
-			const rect = input.getBoundingClientRect();
-			if (rect.width > 40 && rect.height > 20) {
-				const probeX = rect.right - 20;
-				const probeY = rect.top + rect.height / 2;
-				const elAtPoint = document.elementFromPoint(probeX, probeY);
+    if (!hasRightIcon && input.isConnected) {
+      const rect = input.getBoundingClientRect();
+      if (rect.width > 40 && rect.height > 20) {
+        const probeX = rect.right - 20;
+        const probeY = rect.top + rect.height / 2;
+        const elAtPoint = document.elementFromPoint(probeX, probeY);
 
-				if (elAtPoint && elAtPoint !== input && !input.contains(elAtPoint)) {
-					if (!elAtPoint.contains(input)) {
-						hasRightIcon = true;
-					}
-				}
-			}
-		}
+        if (elAtPoint && elAtPoint !== input && !input.contains(elAtPoint)) {
+          if (!elAtPoint.contains(input)) {
+            hasRightIcon = true;
+          }
+        }
+      }
+    }
 
-		const rightIconOffset = hasRightIcon
-			? Math.max(originalPaddingRight, 30)
-			: 0;
+    const rightIconOffset = hasRightIcon
+      ? Math.max(originalPaddingRight, 30)
+      : 0;
 
-		const update = () => {
-			if (!input.isConnected || !button.isConnected) {
-				button.style.display = 'none';
-				return;
-			}
+    const update = () => {
+      if (!input.isConnected || !button.isConnected) {
+        button.style.display = "none";
+        return;
+      }
 
-			if (!this.isElementVisible(input) || !isVisibleInViewport) {
-				button.style.display = 'none';
-				return;
-			}
+      if (!this.isElementVisible(input) || !isVisibleInViewport) {
+        button.style.display = "none";
+        return;
+      }
 
-			if (this.isObstructed(input, button)) {
-				button.style.display = 'none';
-				return;
-			}
+      if (this.isObstructed(input, button)) {
+        button.style.display = "none";
+        return;
+      }
 
-			const inputRect = input.getBoundingClientRect();
+      const inputRect = input.getBoundingClientRect();
 
-			if (inputRect.width === 0 || inputRect.height === 0) {
-				button.style.display = 'none';
-				return;
-			}
+      if (inputRect.width === 0 || inputRect.height === 0) {
+        button.style.display = "none";
+        return;
+      }
 
-			button.style.display = 'block';
+      button.style.display = "block";
 
-			const fontSize =
-				parseFloat(
-					window.getComputedStyle(document.documentElement).fontSize,
-				) || 16;
-			const iconWidthRem = 1.75;
-			const rightMarginRem = 0.25;
-			const iconWidth = iconWidthRem * fontSize;
-			const rightMargin = rightMarginRem * fontSize;
+      const fontSize =
+        parseFloat(
+          window.getComputedStyle(document.documentElement).fontSize,
+        ) || 16;
+      const iconWidthRem = 1.75;
+      const rightMarginRem = 0.25;
+      const iconWidth = iconWidthRem * fontSize;
+      const rightMargin = rightMarginRem * fontSize;
 
-			const top = inputRect.top + inputRect.height / 2 - iconWidth / 2;
+      const top = inputRect.top + inputRect.height / 2 - iconWidth / 2;
 
-			const currentStyle = window.getComputedStyle(input);
-			const borderRight = parseFloat(currentStyle.borderRightWidth) || 0;
+      const currentStyle = window.getComputedStyle(input);
+      const borderRight = parseFloat(currentStyle.borderRightWidth) || 0;
 
-			const rightOffset = rightIconOffset + iconWidth + rightMargin;
+      const rightOffset = rightIconOffset + iconWidth + rightMargin;
 
-			const left = inputRect.right - borderRight - rightOffset;
+      const left = inputRect.right - borderRight - rightOffset;
 
-			const finalLeft = Math.max(left, inputRect.left + 4);
+      const finalLeft = Math.max(left, inputRect.left + 4);
 
-			button.style.setProperty('top', `${top}px`, 'important');
-			button.style.setProperty('left', `${finalLeft}px`, 'important');
+      button.style.setProperty("top", `${Math.round(top)}px`, "important");
+      button.style.setProperty(
+        "left",
+        `${Math.round(finalLeft)}px`,
+        "important",
+      );
 
-			const targetPadding = rightIconOffset + iconWidth + rightMargin + 4;
+      const targetPadding = rightIconOffset + iconWidth + rightMargin + 4;
 
-			if (currentStyle.boxSizing === 'border-box') {
-				if (
-					Math.abs(parseFloat(currentStyle.paddingRight) - targetPadding) > 1
-				) {
-					input.style.setProperty(
-						'padding-right',
-						`${targetPadding}px`,
-						'important',
-					);
-					lastAppliedPadding = targetPadding;
-				}
-			}
-		};
+      if (currentStyle.boxSizing === "border-box") {
+        if (
+          Math.abs(parseFloat(currentStyle.paddingRight) - targetPadding) > 1
+        ) {
+          input.style.setProperty(
+            "padding-right",
+            `${targetPadding}px`,
+            "important",
+          );
+          lastAppliedPadding = targetPadding;
+        }
+      }
+    };
 
-		const loop = () => {
-			if (isVisibleInViewport) {
-				update();
-			}
-			animationId = requestAnimationFrame(loop);
-		};
+    const loop = () => {
+      if (isVisibleInViewport) {
+        update();
+      }
+      animationId = requestAnimationFrame(loop);
+    };
 
-		const intersectionObserver = new IntersectionObserver(
-			(entries) => {
-				isVisibleInViewport = entries[0].isIntersecting;
-				if (isVisibleInViewport) {
-					update();
-				} else {
-					button.style.display = 'none';
-				}
-			},
-			{
-				threshold: 0,
-			},
-		);
-		intersectionObserver.observe(input);
+    const intersectionObserver = new IntersectionObserver(
+      (entries) => {
+        isVisibleInViewport = entries[0].isIntersecting;
+        if (isVisibleInViewport) {
+          update();
+        } else {
+          button.style.display = "none";
+        }
+      },
+      {
+        threshold: 0,
+      },
+    );
+    intersectionObserver.observe(input);
 
-		animationId = requestAnimationFrame(loop);
+    animationId = requestAnimationFrame(loop);
 
-		return () => {
-			if (animationId) cancelAnimationFrame(animationId);
-			intersectionObserver.disconnect();
-			button.remove();
-			if (lastAppliedPadding > 0) {
-				input.style.removeProperty('padding-right');
-			}
-		};
-	}
+    return () => {
+      if (animationId) cancelAnimationFrame(animationId);
+      intersectionObserver.disconnect();
+      button.remove();
+      if (lastAppliedPadding > 0) {
+        input.style.removeProperty("padding-right");
+      }
+    };
+  }
 }

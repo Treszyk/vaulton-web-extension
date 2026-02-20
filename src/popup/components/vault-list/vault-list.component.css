@@ -60,7 +60,7 @@
   border-radius: 12px;
   padding: 10px 14px 10px 38px;
   color: white;
-  font-family: "Inter", sans-serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: 13px;
   outline: none;
   transition: all 0.2s;
@@ -78,7 +78,7 @@
   flex-direction: column;
   gap: 10px;
   flex: 1;
-  overflow-y: overlay;
+  overflow-y: auto;
   min-height: 0;
 }
 

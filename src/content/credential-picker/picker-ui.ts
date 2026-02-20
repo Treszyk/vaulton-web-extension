@@ -65,6 +65,7 @@ export class PickerUI {
 
     picker.innerHTML = `
       <div style="display: flex !important; justify-content: center !important; margin-bottom: 0.75rem; color: #a855f7;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
           <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
         </svg>
@@ -95,6 +96,7 @@ export class PickerUI {
 
     picker.innerHTML = `
       <div style="display: flex !important; justify-content: center !important; margin-bottom: 0.75rem; color: #a1a1aa;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
           <line x1="12" y1="2" x2="12" y2="12"></line>
         </svg>
@@ -174,7 +176,6 @@ export class PickerUI {
 
     const REVEAL_DURATION_MS = 15000;
     let countdownInterval: number | null = null;
-
 
     const clearTimer = () => {
       if (countdownInterval) {

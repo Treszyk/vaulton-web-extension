@@ -1,26 +1,25 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta
-			name="viewport"
-			content="width=device-width, initial-scale=1.0" />
-		<title>Vaulton Extension</title>
-		<style>
-			body,
-			html {
-				margin: 0;
-				padding: 0;
-				width: 100%;
-				height: 100%;
-				background: #000;
-			}
-		</style>
-	</head>
-	<body>
-		<app-root></app-root>
-		<script
-			type="module"
-			src="/src/popup/main.ts"></script>
-	</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vaulton Extension</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 600px;
+        min-width: 410px;
+        max-width: 800px;
+        background: #000;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <app-root></app-root>
+    <script type="module" src="/src/popup/main.ts"></script>
+  </body>
 </html>

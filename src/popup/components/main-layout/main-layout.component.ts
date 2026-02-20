@@ -214,23 +214,23 @@ type Tab = "vault" | "security" | "account";
         min-height: 0;
         display: flex;
         flex-direction: column;
+        margin-right: 6px;
       }
 
       .bottom-nav {
         background: #09090b;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
         padding: 0;
-        z-index: 100;
+        z-index: 110;
       }
 
       .tab-switcher {
         display: flex;
         padding: 12px 16px;
         position: relative;
-        z-index: 100;
+        z-index: 120;
         margin: 0;
         width: 100%;
-        box-sizing: border-box;
         box-sizing: border-box;
       }
 
@@ -342,6 +342,11 @@ type Tab = "vault" | "security" | "account";
       }
 
       .toast-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding-bottom: 80px;
         z-index: 50;
         display: flex;
         flex-direction: column-reverse;
@@ -352,6 +357,7 @@ type Tab = "vault" | "security" | "account";
 
       .toast-item {
         pointer-events: auto;
+        background: #09090b;
         border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         padding: 10px 20px;
         display: flex;
@@ -372,7 +378,7 @@ type Tab = "vault" | "security" | "account";
         from {
           max-height: 0;
           opacity: 0;
-          transform: translateY(10px);
+          transform: translateY(100%);
           padding-top: 0;
           padding-bottom: 0;
           border-top-width: 0;
@@ -399,7 +405,7 @@ type Tab = "vault" | "security" | "account";
         to {
           max-height: 0;
           opacity: 0;
-          transform: translateY(10px);
+          transform: translateY(100%);
           padding-top: 0;
           padding-bottom: 0;
           border-top-width: 0;
