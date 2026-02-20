@@ -102,7 +102,7 @@ import { StorageCore } from "../../../core/storage/storage-core";
     <app-confirm-modal
       *ngIf="showWipeConfirm()"
       title="Wipe Local Data"
-      message="This will log you out and PERMANENTLY delete all locally cached vault data and settings. Proceed with the wipe?"
+      message="This will log you out and PERMANENTLY delete locally cached vault data and settings for all users. Proceed with the wipe?"
       confirmLabel="Wipe Everything"
       [isDanger]="true"
       (confirm)="onWipeAll()"

@@ -14,6 +14,7 @@ const auth = new BackgroundAuthManager();
 auth.syncVault(false, THROTTLES.VAULT_SYNC).catch((err) => {
   console.error("[Vaulton Background] Initial vault sync failed:", err);
 });
+StorageCore.initAccountId();
 
 browserApi.runtime.onInstalled.addListener(() => {
   // console.log("[Vaulton Background] Installed/Updated: Setting up alarms.");
@@ -34,31 +35,38 @@ browserApi.alarms.onAlarm.addListener((alarm: any) => {
 
 browserApi.storage.onChanged.addListener((changes: { [key: string]: any }) => {
   const keys = StorageCore.KEYS;
-  if (changes[keys.ACCESS_TOKEN] && !changes[keys.ACCESS_TOKEN].newValue) {
-    if (changes[keys.REFRESH_TOKEN] && !changes[keys.REFRESH_TOKEN].newValue) {
+  const ch = (key: string) => StorageCore.getChange(changes, key);
+
+  const accessTokenChange = ch(keys.ACCESS_TOKEN);
+  if (accessTokenChange && !accessTokenChange.newValue) {
+    if (ch(keys.REFRESH_TOKEN) && !ch(keys.REFRESH_TOKEN)!.newValue) {
       return;
     }
     auth.refreshTokens();
   }
 
-  if (changes[keys.LOCKOUT_STRATEGY]) {
+  if (ch(keys.LOCKOUT_STRATEGY)) {
     StorageCore.invalidateStrategyCache();
     auth.resetLockTimer();
   }
 
-  if (changes[keys.VAULT_KEY] && !changes[keys.VAULT_KEY].newValue) {
-    const newToken = changes[keys.ACCESS_TOKEN]?.newValue;
+  const vaultKeyChange = ch(keys.VAULT_KEY);
+  if (vaultKeyChange && !vaultKeyChange.newValue) {
+    const newToken = ch(keys.ACCESS_TOKEN)?.newValue;
     if (newToken) return;
     auth.isLocked().then((locked) => {
       if (!locked) auth.clearSession();
     });
   }
 
+  const sessionKeyChange = ch(StorageCore.KEYS.VAULT_SESSION_KEY);
+  const vaultCacheChange = ch(StorageCore.KEYS.ENCRYPTED_VAULT);
+
   if (
-    changes[StorageCore.KEYS.VAULT_SESSION_KEY] &&
-    !changes[StorageCore.KEYS.VAULT_SESSION_KEY].newValue
+    (sessionKeyChange && !sessionKeyChange.newValue) ||
+    (vaultCacheChange && !vaultCacheChange.newValue)
   ) {
-    auth.syncVault();
+    auth.syncVault(true);
   }
 });
 

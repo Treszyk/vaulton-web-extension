@@ -27,6 +27,7 @@ import { getAccountIdFromToken } from "../core/auth/jwt-utils";
 
 export class BackgroundAuthManager {
   private _cachedAccountId: string | null = null;
+
   async syncVault(force = false, throttleMs = 300000): Promise<boolean> {
     if (!force) {
       const lastSync = await StorageCore.get(StorageCore.KEYS.LAST_SYNC_TIME);
@@ -191,10 +192,16 @@ export class BackgroundAuthManager {
     refreshExpiresAt: string,
     accountId?: string,
   ): Promise<void> {
+    const keys = StorageCore.KEYS;
+
+    if (accountId) {
+      await StorageCore.set(keys.ACCOUNT_ID, accountId);
+      this._cachedAccountId = accountId;
+    }
+
     const area = await StorageCore.detectArea();
     const otherArea = area === "local" ? "session" : "local";
 
-    const keys = StorageCore.KEYS;
     const data = {
       [keys.ACCESS_TOKEN]: accessToken,
       [keys.REFRESH_TOKEN]: refreshToken,
@@ -206,11 +213,6 @@ export class BackgroundAuthManager {
       [keys.ACCESS_TOKEN, keys.REFRESH_TOKEN, keys.REFRESH_EXPIRES_AT],
       otherArea,
     );
-
-    if (accountId) {
-      await StorageCore.set(keys.ACCOUNT_ID, accountId);
-      this._cachedAccountId = accountId;
-    }
   }
 
   public async clearSession(): Promise<void> {

@@ -39,6 +39,15 @@ export class StorageCore {
   };
 
   private static readonly SCOPED_KEYS = [
+    StorageCore.KEYS.ACCESS_TOKEN,
+    StorageCore.KEYS.REFRESH_TOKEN,
+    StorageCore.KEYS.REFRESH_EXPIRES_AT,
+    StorageCore.KEYS.VAULT_KEY,
+    StorageCore.KEYS.VAULT_SESSION_KEY,
+    StorageCore.KEYS.ENCRYPTED_VAULT,
+    StorageCore.KEYS.PENDING_SAVE,
+    StorageCore.KEYS.LAST_SYNC_TIME,
+    StorageCore.KEYS.LAST_VERIFY_TIME,
     StorageCore.KEYS.LOCKOUT_STRATEGY,
     StorageCore.KEYS.EXCLUDED_SITES,
     StorageCore.KEYS.AUTOFILL_ENABLED,
@@ -48,6 +57,22 @@ export class StorageCore {
     val: StorageArea | null;
     expiry: number;
   } = { val: null, expiry: 0 };
+
+  private static _cachedAccountId: string | null = null;
+
+  static getChange(
+    changes: { [key: string]: any },
+    key: string,
+  ): { newValue?: any; oldValue?: any } | undefined {
+    const prefix = this._cachedAccountId ? `acc:${this._cachedAccountId}:` : "";
+    const scopedKey = this.SCOPED_KEYS.includes(key) ? `${prefix}${key}` : key;
+    return changes[scopedKey];
+  }
+
+  static async initAccountId(): Promise<void> {
+    const id = await this.get(this.KEYS.ACCOUNT_ID);
+    if (id) this._cachedAccountId = id;
+  }
 
   static async get(key: string, area?: StorageArea): Promise<any> {
     const scopedKey = await this.getScopedKey(key);
@@ -59,6 +84,9 @@ export class StorageCore {
   static async set(key: string, value: any, area?: StorageArea): Promise<void> {
     if (key === this.KEYS.LOCKOUT_STRATEGY) {
       this.invalidateStrategyCache();
+    }
+    if (key === this.KEYS.ACCOUNT_ID) {
+      this._cachedAccountId = typeof value === "string" ? value : null;
     }
     const scopedKey = await this.getScopedKey(key);
     const targetArea = area || (await this.resolveArea(key));
@@ -73,7 +101,12 @@ export class StorageCore {
       this.invalidateStrategyCache();
     }
     if (area) {
-      await this.execute("set", area, items);
+      const scopedItems: { [key: string]: any } = {};
+      for (const [key, val] of Object.entries(items)) {
+        const scopedKey = await this.getScopedKey(key);
+        scopedItems[scopedKey] = val;
+      }
+      await this.execute("set", area, scopedItems);
       return;
     }
 
@@ -101,7 +134,17 @@ export class StorageCore {
     area?: StorageArea,
   ): Promise<{ [key: string]: any }> {
     if (area) {
-      return (await this.execute("get", area, keys)) || {};
+      const scopedKeys = await Promise.all(
+        keys.map((k) => this.getScopedKey(k)),
+      );
+      const raw = (await this.execute("get", area, scopedKeys)) || {};
+      const result: { [key: string]: any } = {};
+      for (let i = 0; i < keys.length; i++) {
+        if (raw[scopedKeys[i]] !== undefined) {
+          result[keys[i]] = raw[scopedKeys[i]];
+        }
+      }
+      return result;
     }
 
     const buckets: { [key in StorageArea]: string[] } = {
@@ -148,7 +191,10 @@ export class StorageCore {
     area?: StorageArea,
   ): Promise<void> {
     if (area) {
-      await this.execute("remove", area, keys);
+      const scopedKeys = await Promise.all(
+        keys.map((k) => this.getScopedKey(k)),
+      );
+      await this.execute("remove", area, scopedKeys);
       return;
     }
 
