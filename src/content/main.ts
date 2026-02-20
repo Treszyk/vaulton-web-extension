@@ -416,7 +416,7 @@ async function initialize(): Promise<void> {
   const forms = formDetector.detectForms();
   // console.log("[Vaulton] About to setup", forms.length, "forms");
 
-  forms.forEach((form, index) => {
+  forms.forEach((form) => {
     try {
       // console.log(`[Vaulton] Setting up form ${index + 1}/${forms.length}`);
       setupForm(form);

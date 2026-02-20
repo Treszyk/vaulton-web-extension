@@ -1,47 +1,42 @@
 {
-	"manifest_version": 3,
-	"name": "Vaulton Password Manager",
-	"version": "1.0",
-	"description": "Vaulton Password Manager Extension",
-	"permissions": ["storage", "alarms"],
-	"host_permissions": [
-		"http://localhost:4200/*",
-		"http://localhost:5009/*",
-		"http://localhost:8080/*",
-		"https://vaulton.dev/*"
-	],
-	"background": {
-		"service_worker": "service-worker.js",
-		"type": "module"
-	},
-	"action": {
-		"default_popup": "src/popup/index.html",
-		"default_icon": {
-			"16": "icons/icon.png",
-			"48": "icons/icon.png",
-			"128": "icons/icon.png"
-		}
-	},
-	"icons": {
-		"16": "icons/icon.png",
-		"48": "icons/icon.png",
-		"128": "icons/icon.png"
-	},
-	"content_scripts": [
-		{
-			"matches": ["<all_urls>"],
-			"js": ["content.js"],
-			"run_at": "document_idle",
-			"all_frames": false
-		}
-	],
-	"content_security_policy": {
-		"extension_pages": "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' http://localhost:5009 http://localhost:8080 http://localhost:4200 https://vaulton.dev; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; object-src 'none'; worker-src 'self'; require-trusted-types-for 'script'; trusted-types angular vaulton-policy;"
-	},
-	"web_accessible_resources": [
-		{
-			"resources": ["icons/icon.png"],
-			"matches": ["<all_urls>"]
-		}
-	]
+  "manifest_version": 3,
+  "name": "Vaulton Password Manager",
+  "version": "1.0",
+  "description": "Vaulton Password Manager Extension",
+  "permissions": ["storage", "alarms"],
+  "host_permissions": ["https://vaulton.dev/*"],
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "icons/icon.png",
+      "48": "icons/icon.png",
+      "128": "icons/icon.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon.png",
+    "48": "icons/icon.png",
+    "128": "icons/icon.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://vaulton.dev; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; object-src 'none'; worker-src 'self'; require-trusted-types-for 'script'; trusted-types angular vaulton-policy;"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/icon.png"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }
