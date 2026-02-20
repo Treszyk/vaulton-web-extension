@@ -11,6 +11,9 @@ The extension is designed for modern browser security standards (Manifest V3) an
 1.  Ensure the Vaulton backend is running.
 2.  Install dependencies: `npm install`.
 
+> **Note on Local Testing:**
+> The `manifest.json` file contains `host_permissions` for `localhost` endpoints (`http://localhost:4200/*`, `http://localhost:5009/*`, `http://localhost:8080/*`). These permissions are explicitly declared to facilitate a local development and testing environment. If you intend to test the extension against a locally running deployment of the Vaulton architecture, ensure these lines remain active. For final production packaging, these localhost permissions should be commented out or removed.
+
 ### Building
 
 The extension must be built before it can be loaded into your browser. The build script is cross-platform and works on both Linux and Windows:
@@ -40,6 +43,9 @@ The extension must be built before it can be loaded into your browser. The build
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the [MIT License](./LICENSE).
 
-It uses third-party dependencies via npm and NuGet under their respective licenses.
+This project bundles the [Inter](https://github.com/rsms/inter) font,
+licensed under the [SIL Open Font License 1.1](public/fonts/LICENSE.txt).
+
+This project uses third-party dependencies via npm and NuGet under their respective licenses.
