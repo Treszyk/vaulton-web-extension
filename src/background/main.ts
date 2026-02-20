@@ -9,14 +9,14 @@ import { StorageCore } from "../core/storage/storage-core";
 
 const auth = new BackgroundAuthManager();
 
-console.log("[Vaulton Background] Service Worker Initializing...");
+// console.log("[Vaulton Background] Service Worker Initializing...");
 
 auth.syncVault(false, THROTTLES.VAULT_SYNC).catch((err) => {
   console.error("[Vaulton Background] Initial vault sync failed:", err);
 });
 
 browserApi.runtime.onInstalled.addListener(() => {
-  console.log("[Vaulton Background] Installed/Updated: Setting up alarms.");
+  // console.log("[Vaulton Background] Installed/Updated: Setting up alarms.");
   browserApi.alarms.clearAll();
   browserApi.alarms.create("vault-sync", {
     periodInMinutes: THROTTLES.BACKGROUND_SYNC_INTERVAL_MINUTES,
@@ -27,7 +27,7 @@ browserApi.alarms.onAlarm.addListener((alarm: any) => {
   if (alarm.name === "vault-sync") {
     auth.syncVault(true);
   } else if (alarm.name === "auto-lock") {
-    console.log("[Background] Auto-lock triggered. Logging out.");
+    // console.log("[Background] Auto-lock triggered. Logging out.");
     auth.logout();
   }
 });

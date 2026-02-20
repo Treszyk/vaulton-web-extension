@@ -31,7 +31,7 @@ export class BackgroundAuthManager {
     if (!force) {
       const lastSync = await StorageCore.get(StorageCore.KEYS.LAST_SYNC_TIME);
       if (lastSync && Date.now() - lastSync < throttleMs) {
-        console.log("[Background] Sync throttled.");
+        // console.log("[Background] Sync throttled.");
         return true;
       }
     }
@@ -180,7 +180,7 @@ export class BackgroundAuthManager {
   async wipeAllData(): Promise<void> {
     await this.logout();
 
-    console.log("[Background] Performing TOTAL WIPE of all local data...");
+    // console.log("[Background] Performing TOTAL WIPE of all local data...");
     await StorageCore.clear("local");
     await StorageCore.clear("session");
   }
@@ -214,7 +214,7 @@ export class BackgroundAuthManager {
   }
 
   public async clearSession(): Promise<void> {
-    console.log("[Background] Clearing session keys and tokens...");
+    // console.log("[Background] Clearing session keys and tokens...");
     this._cachedAccountId = null;
     await StorageCore.clearSession();
   }

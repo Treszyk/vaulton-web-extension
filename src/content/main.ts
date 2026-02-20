@@ -31,9 +31,11 @@ export function resetAutoLockTimer(): void {
 }
 
 document.addEventListener("mousedown", resetAutoLockTimer);
-document.addEventListener("keydown", resetAutoLockTimer);
+document.addEventListener("mousemove", resetAutoLockTimer);
+document.addEventListener("scroll", resetAutoLockTimer);
+document.addEventListener("touchstart", resetAutoLockTimer);
 
-console.log("[Vaulton] Content script initialized");
+// console.log("[Vaulton] Content script initialized");
 
 const formDetector = new FormDetector();
 const buttonInjector = new ButtonInjector();
@@ -203,7 +205,7 @@ function setupForm(form: LoginForm): void {
 }
 
 async function handleFormSubmit(data: FormSubmitData): Promise<void> {
-  console.log("[Vaulton] handleFormSubmit triggered");
+  // console.log("[Vaulton] handleFormSubmit triggered");
   const currentUrl = window.location.href;
   const baseDomain = getBaseDomain(currentUrl);
 
@@ -218,7 +220,7 @@ async function handleFormSubmit(data: FormSubmitData): Promise<void> {
     pendingLoginState &&
     pendingLoginState.domain === baseDomain
   ) {
-    console.log("[Vaulton] Using stitched username from session state");
+    // console.log("[Vaulton] Using stitched username from session state");
     username = pendingLoginState.username;
   }
 
@@ -232,15 +234,12 @@ async function handleFormSubmit(data: FormSubmitData): Promise<void> {
   });
   const exclusions: string[] = exclusionsRes?.data || [];
   if (exclusions.includes(baseDomain)) {
-    console.log("[Vaulton] Domain is excluded from prompts:", baseDomain);
+    // console.log("[Vaulton] Domain is excluded from prompts:", baseDomain);
     return;
   }
 
   try {
-    console.log(
-      "[Vaulton] Notifying background of pending save for:",
-      baseDomain,
-    );
+    // console.log("[Vaulton] Notifying background of pending save for:", baseDomain);
     await browserApi.runtime.sendMessage({
       type: "SET_PENDING_SAVE",
       payload: {
@@ -255,9 +254,7 @@ async function handleFormSubmit(data: FormSubmitData): Promise<void> {
   }
 
   if (!data.password) {
-    console.log(
-      "[Vaulton] Stage 1 submission (username only), state preserved",
-    );
+    // console.log("[Vaulton] Stage 1 submission (username only), state preserved");
     pendingLoginState = {
       username: username,
       domain: baseDomain,
@@ -276,15 +273,13 @@ async function handleFormSubmit(data: FormSubmitData): Promise<void> {
       },
     });
 
-    console.log("[Vaulton] Checked credential existence");
+    // console.log("[Vaulton] Checked credential existence");
 
     if (response && response.success && response.data) {
       const { action } = response.data;
 
       if (action === "ignore") {
-        console.log(
-          "[Vaulton] Credential already exists, skipping save prompt.",
-        );
+        // console.log("[Vaulton] Credential already exists, skipping save prompt.");
         await clearStickyState(baseDomain);
         return;
       }
@@ -302,7 +297,7 @@ async function handleFormSubmit(data: FormSubmitData): Promise<void> {
       }
 
       savePrompt.show(action, baseDomain, username, async (userAction) => {
-        console.log("[Vaulton] Save prompt action:", userAction);
+        // console.log("[Vaulton] Save prompt action:", userAction);
         await clearStickyState(baseDomain);
 
         if (userAction === "never") {
@@ -343,7 +338,7 @@ async function clearStickyState(domain: string): Promise<void> {
 }
 
 async function initialize(): Promise<void> {
-  console.log("[Vaulton] initialize() called");
+  // console.log("[Vaulton] initialize() called");
 
   buttonInjector.removeAll();
 
@@ -355,11 +350,11 @@ async function initialize(): Promise<void> {
   );
 
   if (autofillEnabled === false) {
-    console.log("[Vaulton] Autofill is disabled by user preference.");
+    // console.log("[Vaulton] Autofill is disabled by user preference.");
     return;
   }
 
-  console.log("[Vaulton] Checking pending saves for domain:", baseDomain);
+  // console.log("[Vaulton] Checking pending saves for domain:", baseDomain);
 
   if (baseDomain) {
     const exclusionsRes = await browserApi.runtime.sendMessage({
@@ -373,11 +368,11 @@ async function initialize(): Promise<void> {
         payload: { domain: baseDomain },
       });
 
-      console.log("[Vaulton] Checked for pending saves");
+      // console.log("[Vaulton] Checked for pending saves");
 
       if (pendingResult && pendingResult.success && pendingResult.data) {
         const pending = pendingResult.data;
-        console.log("[Vaulton] Recovered pending save from session");
+        // console.log("[Vaulton] Recovered pending save from session");
         pendingLoginState = {
           username: pending.username,
           domain: pending.domain,
@@ -412,18 +407,18 @@ async function initialize(): Promise<void> {
             },
           );
         }
-      } else {
-        console.log("[Vaulton] No pending saves found.");
-      }
+      } // else {
+      // console.log("[Vaulton] No pending saves found.");
+      // }
     }
   }
 
   const forms = formDetector.detectForms();
-  console.log("[Vaulton] About to setup", forms.length, "forms");
+  // console.log("[Vaulton] About to setup", forms.length, "forms");
 
   forms.forEach((form, index) => {
     try {
-      console.log(`[Vaulton] Setting up form ${index + 1}/${forms.length}`);
+      // console.log(`[Vaulton] Setting up form ${index + 1}/${forms.length}`);
       setupForm(form);
     } catch (e) {
       console.error("[Vaulton] Error setting up form:", e);
