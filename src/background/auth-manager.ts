@@ -108,7 +108,7 @@ export class BackgroundAuthManager {
       JSON.stringify(decryptedEntries),
     );
 
-    await StorageCore.set(keys.ENCRYPTED_VAULT, encryptedCache, "local");
+    await StorageCore.set(keys.ENCRYPTED_VAULT, encryptedCache);
     return true;
   }
 
